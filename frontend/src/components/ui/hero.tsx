@@ -58,6 +58,7 @@ const CircularBadge = () => (
 
 export const Component = () => {
   const [stats, setStats] = useState({ activeSOS: 0, crowdedGates: 0 });
+  const [showJoinModal, setShowJoinModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -112,15 +113,22 @@ export const Component = () => {
 
         {/* Desktop Links */}
         <div className="hidden md:flex items-center space-x-2">
-          {['Etihad Stadium', 'Command Center', 'Emergency Protocols', 'Live Data'].map((item) => (
-            <a key={item} href="#" className="px-4 py-1.5 rounded-full border border-white/30 text-white text-xs font-semibold hover:bg-white/10 transition-colors">
-              {item}
-            </a>
-          ))}
+          <Link href="/audience" className="px-4 py-1.5 rounded-full border border-white/30 text-white text-xs font-semibold hover:bg-white/10 transition-colors">
+            Audience Wayfinding
+          </Link>
+          <Link href="/organizer" className="px-4 py-1.5 rounded-full border border-white/30 text-white text-xs font-semibold hover:bg-white/10 transition-colors">
+            Control Room
+          </Link>
+          <Link href="/model" className="px-4 py-1.5 rounded-full border border-white/30 text-white text-xs font-semibold hover:bg-white/10 transition-colors">
+            Etihad Stadium Model
+          </Link>
         </div>
 
         {/* Connect Button */}
-        <button className="px-6 py-2 rounded-full border border-white text-white text-xs md:text-sm font-semibold hover:bg-white hover:text-[#0038FF] transition-colors">
+        <button 
+          onClick={() => setShowJoinModal(true)}
+          className="px-6 py-2 rounded-full border border-white text-white text-xs md:text-sm font-semibold hover:bg-white hover:text-[#0038FF] transition-colors"
+        >
           Join Network
         </button>
       </nav>
@@ -135,7 +143,7 @@ export const Component = () => {
           <div className="w-full flex flex-col items-center relative z-10 space-y-2 md:space-y-4">
             
             {/* #FIFA26 */}
-            <div className="w-full flex justify-start pl-[10%] md:pl-[25%] relative z-30">
+            <div className="w-full flex justify-center relative z-30">
               <h1 
                 className="text-[clamp(4.5rem,12vw,160px)] font-black leading-[0.85] tracking-tighter text-[#CCFF00] m-0 p-0 uppercase"
                 style={{ 
@@ -161,7 +169,7 @@ export const Component = () => {
             </div>
             
             {/* NETWORK */}
-            <div className="w-full flex justify-start pl-[15%] md:pl-[30%] relative z-10">
+            <div className="w-full flex justify-center relative z-10">
               <h1 
                 className="text-[clamp(4.5rem,12vw,160px)] font-black leading-[0.85] tracking-tighter text-white m-0 p-0 uppercase"
                 style={{ 
@@ -182,16 +190,19 @@ export const Component = () => {
             <motion.div 
               animate={{ y: [0, -15, 0] }}
               transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute bottom-[10%] left-[5%] md:left-[20%] z-30 pointer-events-auto cursor-pointer"
+              className="absolute bottom-[10%] left-[5%] md:left-[20%] z-30 pointer-events-auto cursor-pointer group"
             >
               <Link href="/audience">
-              <div className="w-40 md:w-52 aspect-[3/3.5] bg-white/20 backdrop-blur-md border border-white/40 rounded-[2rem] p-5 flex flex-col items-center justify-center rotate-[-12deg] shadow-2xl hover:rotate-0 transition-transform duration-500">
-                <div className="w-16 h-16 md:w-24 md:h-24 bg-[#D2B48C] rounded-full flex items-center justify-center mb-4 shadow-inner border-[3px] border-white/50 overflow-hidden">
-                  <img src="https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80" alt="Avatar" className="w-full h-full object-cover" />
+              <div className="w-40 md:w-52 aspect-[3/3.5] bg-white/20 backdrop-blur-md border border-white/40 rounded-[2rem] p-4 flex flex-col items-center justify-center rotate-[-12deg] shadow-2xl group-hover:rotate-0 transition-transform duration-500">
+                <div className="w-16 h-16 md:w-24 md:h-24 bg-black/20 rounded-full flex items-center justify-center mb-3 shadow-inner border-[3px] border-white/50 overflow-hidden">
+                  <img src="https://images.unsplash.com/photo-1577223625816-7546f13df25d?auto=format&fit=crop&w=150&q=80" alt="Stadium Field" className="w-full h-full object-cover" />
                 </div>
-                <div className="text-center mt-2">
-                  <p className="font-bold text-sm md:text-lg text-white">fan_johndoe</p>
-                  <p className="text-[10px] md:text-xs text-white/80 mt-1">Sector B122</p>
+                <div className="text-center">
+                  <p className="font-black text-sm md:text-base text-white">Audience Portal</p>
+                  <p className="text-[9px] md:text-[10px] font-bold text-white/80 mt-0.5">Interactive Wayfinding</p>
+                </div>
+                <div className="mt-3 bg-[#CCFF00] text-black text-[9px] md:text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full shadow-lg">
+                  Launch Portal
                 </div>
               </div>
               </Link>
@@ -201,19 +212,22 @@ export const Component = () => {
             <motion.div 
               animate={{ y: [0, -20, 0] }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-              className="absolute top-[15%] right-[5%] md:right-[22%] z-30 pointer-events-auto cursor-pointer"
+              className="absolute top-[15%] right-[5%] md:right-[22%] z-30 pointer-events-auto cursor-pointer group"
             >
               <Link href="/organizer">
-              <div className="w-40 md:w-52 aspect-[3/3.5] bg-white/20 backdrop-blur-md border border-white/40 rounded-[2rem] p-5 flex flex-col items-center justify-center rotate-[12deg] shadow-2xl hover:rotate-0 transition-transform duration-500">
-                <div className="w-16 h-16 md:w-24 md:h-24 bg-[#2C3E50] rounded-full flex items-center justify-center mb-4 shadow-inner border-[3px] border-white/50 overflow-hidden relative">
-                  <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=150&q=80" alt="Avatar" className="w-full h-full object-cover scale-110" />
-                  {stats.activeSOS > 0 && (
-                    <div className="absolute top-0 right-0 bg-red-500 w-4 h-4 md:w-6 md:h-6 rounded-full border-2 border-white flex items-center justify-center text-[10px] text-white font-bold">{stats.activeSOS}</div>
-                  )}
+              <div className="w-40 md:w-52 aspect-[3/3.5] bg-white/20 backdrop-blur-md border border-white/40 rounded-[2rem] p-4 flex flex-col items-center justify-center rotate-[12deg] shadow-2xl group-hover:rotate-0 transition-transform duration-500">
+                <div className="w-16 h-16 md:w-24 md:h-24 bg-black/20 rounded-full flex items-center justify-center mb-3 shadow-inner border-[3px] border-white/50 overflow-hidden relative">
+                  <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=150&q=80" alt="Control Room" className="w-full h-full object-cover" />
                 </div>
-                <div className="text-center mt-2">
-                  <p className="font-bold text-sm md:text-lg text-white">command_admin</p>
-                  <p className="text-[10px] md:text-xs text-white/80 mt-1">Etihad Ops</p>
+                <div className="text-center">
+                  <p className="font-black text-sm md:text-base text-white">Control Room</p>
+                  <p className="text-[9px] md:text-[10px] font-bold text-red-400 mt-0.5 flex items-center justify-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                    {stats.activeSOS} ACTIVE SOS
+                  </p>
+                </div>
+                <div className="mt-3 bg-white text-black text-[9px] md:text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full shadow-lg">
+                  Open Console
                 </div>
               </div>
               </Link>
@@ -239,7 +253,13 @@ export const Component = () => {
       </main>
 
       {/* Bottom Features Section */}
-      <section className="bg-white text-black rounded-t-[2.5rem] md:rounded-t-[3.5rem] px-6 py-12 md:px-10 md:py-16 relative z-20 shadow-[0_-20px_50px_rgba(0,0,0,0.2)] mt-auto w-full">
+      <motion.section 
+        initial={{ y: 100, opacity: 0 }}
+        whileInView={{ y: 0, opacity: 1 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        className="bg-white text-black rounded-t-[2.5rem] md:rounded-t-[3.5rem] px-6 py-12 md:px-10 md:py-16 relative z-20 shadow-[0_-20px_50px_rgba(0,0,0,0.2)] mt-auto w-full"
+      >
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           
           {/* Card 1 - Audience Wayfinding */}
@@ -329,7 +349,54 @@ export const Component = () => {
           </div>
 
         </div>
-      </section>
+      </motion.section>
+
+      {/* Join Network Modal */}
+      {showJoinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-[12px_12px_0_0_#000] border-4 border-black relative"
+          >
+            <button 
+              onClick={() => setShowJoinModal(false)}
+              className="absolute top-4 right-4 text-black hover:text-[#0038FF] font-black text-xl"
+            >
+              ✕
+            </button>
+            <h2 className="text-3xl font-black uppercase text-black mb-2 tracking-tight">Join Network</h2>
+            <p className="text-sm font-bold text-black/60 uppercase tracking-wider mb-6">Want to be an organiser or volunteer?</p>
+            
+            <div className="flex flex-col gap-4">
+              <div className="bg-[#F8F9FA] border-2 border-black rounded-xl p-4 flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#CCFF00] rounded-full border-2 border-black flex items-center justify-center">
+                  <User className="w-6 h-6 text-black" />
+                </div>
+                <div>
+                  <p className="font-black text-black uppercase">Volunteer</p>
+                  <p className="text-xs text-black/60 font-bold mt-1">Help manage the crowd</p>
+                </div>
+              </div>
+              
+              <div className="bg-[#F8F9FA] border-2 border-black rounded-xl p-4 flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#0038FF] rounded-full border-2 border-black flex items-center justify-center">
+                  <Settings2 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="font-black text-black uppercase">Organiser</p>
+                  <p className="text-xs text-black/60 font-bold mt-1">Join the control room</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 text-center bg-[#CCFF00] border-2 border-black rounded-xl p-4 transform -rotate-2 hover:rotate-0 transition-transform">
+              <p className="text-[10px] font-black uppercase tracking-wider text-black/60 mb-1">Contact us at</p>
+              <a href="mailto:FIFA2026@gmail.com" className="text-lg font-black text-black hover:underline">FIFA2026@gmail.com</a>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
     </div>
   );
