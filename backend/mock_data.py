@@ -132,3 +132,22 @@ def _populate_blocks():
             }
 
 _populate_blocks()
+
+# Points of Interest (POIs) around the stadium
+POIS = [
+    # Food Stalls
+    {"id": "food_north", "type": "Food Stall", "name": "North Grill", "x": 110, "y": 25, "description": "Burgers and hotdogs at North Stand."},
+    {"id": "food_south", "type": "Food Stall", "name": "South Pizza", "x": 110, "y": 129, "description": "Pizza and snacks at South Stand."},
+    {"id": "food_east", "type": "Food Stall", "name": "East Kiosk", "x": 185, "y": 77, "description": "Drinks and snacks at East Stand."},
+    {"id": "food_west", "type": "Food Stall", "name": "West Cafe", "x": 35, "y": 77, "description": "Coffee and pastries at West Stand."},
+    
+    # Rehydration Points
+    {"id": "water_ne", "type": "Rehydration Point", "name": "Water Station NE", "x": 160, "y": 35, "description": "Free drinking water fountain."},
+    {"id": "water_sw", "type": "Rehydration Point", "name": "Water Station SW", "x": 60, "y": 119, "description": "Free drinking water fountain."},
+    
+    # Restrooms
+    {"id": "wc_north", "type": "Restroom", "name": "Restroom North", "x": 90, "y": 25, "description": "Men's, Women's, and Accessible Restrooms."},
+    {"id": "wc_south", "type": "Restroom", "name": "Restroom South", "x": 130, "y": 129, "description": "Men's, Women's, and Accessible Restrooms."},
+    {"id": "wc_east", "type": "Restroom", "name": "Restroom East", "x": 185, "y": 95, "description": "Men's, Women's, and Accessible Restrooms."},
+    {"id": "wc_west", "type": "Restroom", "name": "Restroom West", "x": 35, "y": 59, "description": "Men's, Women's, and Accessible Restrooms."}
+]

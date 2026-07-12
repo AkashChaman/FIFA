@@ -33,31 +33,31 @@ export default function AlertBanner({ currentGate, onRerouteAccept }: AlertBanne
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
         className="w-full max-w-md mx-auto p-4 z-50 sticky top-4"
       >
-        <div className="bg-slate-900/95 border-2 border-amber-500/80 rounded-xl p-4 shadow-[0_8px_30px_rgb(245,158,11,0.2)] backdrop-blur-md">
+        <div className="bg-[#CCFF00] border-4 border-black rounded-xl p-4 shadow-[8px_8px_0_0_#000] text-black">
           <div className="flex gap-3 items-start">
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500 mt-0.5 animate-pulse">
+            <div className="p-2 rounded-lg bg-white border-2 border-black shadow-[2px_2px_0_0_#000] text-black mt-0.5 animate-pulse">
               <AlertTriangle className="w-5 h-5" />
             </div>
             
             <div className="flex-1">
-              <h3 className="text-sm font-extrabold text-amber-500 uppercase tracking-wider">
+              <h3 className="text-sm font-black text-black uppercase tracking-wider">
                 Gate Congestion Alert
               </h3>
-              <p className="text-xs text-slate-200 font-medium mt-1 leading-relaxed">
+              <p className="text-xs text-black/80 font-bold mt-1 leading-relaxed">
                 {currentGate.status === "Closed" ? (
                   <span><strong>{currentGate.gate_id}</strong> is closed.</span>
                 ) : (
                   <span><strong>{currentGate.gate_id}</strong> is currently at capacity.</span>
                 )}
                 {" Please proceed to "}
-                <span className="text-emerald-400 font-bold underline">
+                <span className="text-[#0038FF] font-black underline">
                   Gate {altGateLetter}
                 </span>
                 {" for faster entry (2 min walk)."}
               </p>
 
-              <div className="flex gap-4 mt-3 pt-3 border-t border-slate-800/80 items-center justify-between">
-                <div className="flex gap-1.5 items-center text-[10px] text-slate-400">
+              <div className="flex gap-4 mt-3 pt-3 border-t-2 border-black/10 items-center justify-between">
+                <div className="flex gap-1.5 items-center text-[10px] text-black/60 font-bold uppercase">
                   <MapPin className="w-3.5 h-3.5" />
                   <span>Route adjusted to Gate {altGateLetter}</span>
                 </div>
@@ -65,7 +65,7 @@ export default function AlertBanner({ currentGate, onRerouteAccept }: AlertBanne
                 {onRerouteAccept && (
                   <button
                     onClick={onRerouteAccept}
-                    className="flex gap-1 items-center bg-amber-500 hover:bg-amber-600 text-slate-950 px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase transition-all duration-200"
+                    className="flex gap-1 items-center bg-white hover:bg-black/5 text-black border-2 border-black px-2.5 py-1 rounded-md text-[10px] font-black uppercase transition-all duration-200 shadow-[2px_2px_0_0_#000] active:translate-y-0.5 active:shadow-none"
                   >
                     <span>Acknowledge</span>
                     <ArrowRight className="w-3 h-3" />

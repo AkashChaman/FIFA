@@ -66,48 +66,57 @@ class SOSAlertPayload(BaseModel):
 class ChatPayload(BaseModel):
     session_id: str
     message: str
+    seat: Optional[str] = ""
+    block: Optional[str] = ""
+    gate: Optional[str] = ""
 
-# Helper to query Gemini API
-def query_gemini_api(prompt: str, system_instruction: str = "") -> str:
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    if not gemini_key or gemini_key == "your-gemini-api-key":
-        return "[MOCK AI] (Add GEMINI_API_KEY to .env to enable live GenAI) "
+# Helper to query OpenAI API
+def query_openai_api(prompt: str, system_instruction: str = "") -> str:
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key or openai_key == "your-openai-api-key":
+        return "[MOCK AI] (Add OPENAI_API_KEY to .env to enable live GenAI) "
         
     try:
-        # We use a direct HTTP request to Gemini API to be highly robust and avoid library version mismatch issues.
-        # This calls Gemini 1.5 Flash or 2.5 Flash. Let's use gemini-1.5-flash as the standard.
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
-        headers = {"Content-Type": "application/json"}
-        
-        # Combine system instruction and prompt if present
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": f"{system_instruction}\n\nUser Question/Report: {prompt}"}
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.2,
-                "maxOutputTokens": 400
-            }
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {openai_key}"
         }
         
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        messages = []
+        if system_instruction:
+            messages.append({"role": "system", "content": system_instruction})
+        messages.append({"role": "user", "content": prompt})
+        
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": messages,
+            "temperature": 0.4,
+            "max_tokens": 1200
+        }
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
         if response.status_code == 200:
             res_json = response.json()
             try:
-                text_response = res_json['candidates'][0]['content']['parts'][0]['text']
+                text_response = res_json['choices'][0]['message']['content']
                 return text_response.strip()
             except (KeyError, IndexError):
-                return "Error parsing Gemini response."
+                return "Error parsing OpenAI response."
         else:
-            return f"Gemini API returned error code {response.status_code}: {response.text}"
+            return f"OpenAI API returned error code {response.status_code}: {response.text}"
     except Exception as e:
-        return f"Exception occurred while calling Gemini API: {str(e)}"
+        return f"Exception occurred while calling OpenAI API: {str(e)}"
 
 # REST Endpoints
+
+@app.get("/api/pois")
+def get_pois():
+    """Returns the static Points of Interest (POIs) such as Food Stalls, Restrooms, and Rehydration Points."""
+    try:
+        return mock_data.POIS
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/gate-status")
 def get_all_gates():
@@ -214,60 +223,135 @@ async def chat_assistant(payload: ChatPayload):
     # Log user message
     db.add_chat_log(payload.session_id, payload.message, "Audience")
     
-    # Compile Stadium context for Gemini
+    # Compile Stadium context for OpenAI
     gates = db.get_gate_status()
     gate_context_list = []
     for g in gates:
         gate_context_list.append(f"{g['gate_id']} ({mock_data.GATES[g['gate_id']]['name']}): Status={g['status']}, Crowd={g['crowd_count']}/{g['capacity']}")
     gate_context = "\n".join(gate_context_list)
     
-    system_instruction = f"""
-    You are the GenAI Safety & Crowd Assistant for Etihad Stadium during the FIFA 2026 World Cup.
-    Your job is to provide natural language guidance, safety tips, directions, and log safety hazards.
+    # Build user location context
+    user_location = ""
+    if payload.block:
+        user_location = f"\nThe user is currently seated at Block {payload.block}, Seat {payload.seat}, nearest gate: {payload.gate}."
     
-    Real-Time Gate Statuses:
-    {gate_context}
+    # Build POI context
+    poi_context_list = []
+    for p in mock_data.POIS:
+        poi_context_list.append(f"- {p['name']} ({p['type']}): {p['description']}")
+    poi_context = "\n".join(poi_context_list)
     
-    Ethad Stadium layout:
-    - Seating levels: Level 1 (Blocks 1xx), Level 2 (Blocks 2xx), Level 3 (Blocks 3xx).
-    - North Stand (Blocks 136-142): served by Gate A (primary) or Gate B (alternative).
-    - East Stand (Blocks 101-109): served by Gate C (primary, 101-105) or Gate D (primary, 106-109).
-    - South Stand (Blocks 114-120): served by Gate E (primary).
-    - West Stand (Blocks 122-132): served by Gate F (primary).
-    
-    Guidelines:
-    1. If the user asks where the medical tent, food court, or bathrooms are:
-       - Medical tent: Located behind North Stand (Level 1, block 136) and South Stand (Level 1, block 118).
-       - Food courts: Located on all concourses (Level 1, 2, 3) near blocks 105, 117, 125, and 139.
-       - Restrooms: Located near every seating block.
-    2. If the user reports an emergency (e.g. fire, injury, fight, crowd crush):
-       - Advise them to stay calm.
-       - Urgent: Tell them to tap the red 'SOS' button in the app immediately to broadcast their seat location to the control center.
-       - Provide clear directions to the nearest exit or medical tent.
-    3. If the user asks about entering or exiting, and their recommended gate is 'Closed' or 'Crowded', direct them to their alternative gate. For example: "Gate A is crowded; please use Gate B."
-    4. Keep answers concise, helpful, and highly professional. Limit to 3 sentences maximum.
-    """
+    system_instruction = f"""You are the GenAI Safety & Crowd Assistant for Etihad Stadium during the FIFA 2026 World Cup.
+You are a knowledgeable, empathetic, and professional stadium concierge powered by AI. Your role is to assist fans with:
+- Navigation and wayfinding inside the stadium
+- Real-time gate congestion and crowd flow guidance
+- Safety information and emergency assistance
+- Facility locations (medical, food, restrooms)
+- General stadium information and tips
+
+Real-Time Gate Statuses:
+{gate_context}
+{user_location}
+
+Points of Interest (Food, Water, Restrooms):
+{poi_context}
+
+Etihad Stadium Layout:
+- Seating levels: Level 1 (Blocks 1xx), Level 2 (Blocks 2xx), Level 3 (Blocks 3xx).
+- North Stand (Blocks 136-142): served by Gate A (primary) or Gate B (alternative).
+- East Stand (Blocks 101-109): served by Gate C (primary, 101-105) or Gate D (primary, 106-109).
+- South Stand (Blocks 114-120): served by Gate E (primary).
+- West Stand (Blocks 122-132): served by Gate F (primary).
+
+Facility Locations:
+- Medical tents: Behind North Stand (Level 1, near block 136) and South Stand (Level 1, near block 118). Staffed by certified paramedics.
+- Food courts: Located on all concourses (Level 1, 2, 3) near blocks 105, 117, 125, and 139. Wide variety of cuisine available.
+- Restrooms: Located near the entrance corridor of every seating block on all levels.
+- Fan zones: Level 1 concourse near Gate A and Gate E.
+- Lost & Found: Main reception near Gate A.
+- Accessibility services: Available at every gate entrance, wheelchair-accessible seating in blocks 101, 114, 125, 136.
+
+Response Guidelines:
+1. Provide thorough, helpful, and well-structured responses. Use bullet points or numbered steps when listing directions or multiple pieces of information.
+2. Be warm and professional — you represent the FIFA 2026 experience. Greet fans kindly, use encouraging language.
+3. When providing directions, be specific about which level, block, and gate to use. Reference the user's current location if known.
+4. If the user asks about gate congestion, always check the real-time gate statuses above and suggest the best alternative if their gate is Crowded or Closed.
+5. For emergencies or safety hazards (fire, medical, crush, fight, injury, stampede, collapse, fainting, heart attack, breathing difficulty), always:
+   - Acknowledge the urgency immediately
+   - Provide calm, actionable safety instructions
+   - Direct them to the nearest medical tent or exit
+
+SOS DETECTION — CRITICAL INSTRUCTION:
+If the user's message describes or requests help with an emergency situation (medical emergency, injury, fire, crowd crush, fight, security threat, fainting, heart attack, breathing problems, suspicious activity, or any life-threatening scenario), you MUST respond with ONLY a valid JSON object in this exact format — no other text before or after:
+{{{{
+  "sos_triggered": true,
+  "sos_message": "<brief description of the emergency for dispatchers>",
+  "response": "<your full empathetic response to the user with safety instructions>"
+}}}}
+
+For all non-emergency messages, respond with plain text only (no JSON wrapper). Be thorough and helpful."""
     
     # If API key is missing, use a rules-based fallback
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    if not gemini_key or gemini_key == "your-gemini-api-key":
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key or openai_key == "your-openai-api-key":
         response_text = get_rules_based_mock_response(payload.message, gates)
-    else:
-        response_text = query_gemini_api(payload.message, system_instruction)
-        # Check if the fallback tag was returned
-        if response_text.startswith("[MOCK AI]"):
-            response_text = response_text + get_rules_based_mock_response(payload.message, gates)
+        return {"response": response_text, "sos_triggered": False}
+    
+    raw_response = query_openai_api(payload.message, system_instruction)
+    
+    # Check if the fallback tag was returned
+    if raw_response.startswith("[MOCK AI]"):
+        response_text = raw_response + get_rules_based_mock_response(payload.message, gates)
+        db.add_chat_log(payload.session_id, response_text, "AI")
+        return {"response": response_text, "sos_triggered": False}
+    
+    # Try to parse as JSON for SOS detection
+    sos_triggered = False
+    response_text = raw_response
+    try:
+        # Strip markdown code fences if present
+        cleaned = raw_response.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        if cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+        
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, dict) and parsed.get("sos_triggered"):
+            sos_triggered = True
+            response_text = parsed.get("response", raw_response)
+            sos_message = parsed.get("sos_message", payload.message)
             
+            # Auto-trigger SOS alert using the user's ticket info
+            alert = db.create_sos_alert(
+                seat=payload.seat or "Unknown",
+                block=payload.block or "Unknown",
+                gate=payload.gate or "Gate A",
+                message=f"[AI-Detected] {sos_message}"
+            )
+            
+            # Broadcast SOS alert to organizer dashboards
+            await manager.broadcast({
+                "type": "SOS_ALERT",
+                "data": alert
+            })
+    except (json.JSONDecodeError, KeyError, TypeError):
+        # Not JSON — normal text response, use as-is
+        pass
+    
     # Log AI response
     db.add_chat_log(payload.session_id, response_text, "AI")
     
-    return {"response": response_text}
+    return {"response": response_text, "sos_triggered": sos_triggered}
 
 @app.get("/api/alerts/summary")
 def get_alerts_summary():
     """
     GenAI Alert Command Center Endpoint:
-    Fetches all active SOS alerts and audience chat messages, then calls Gemini
+    Fetches all active SOS alerts and audience chat messages, then calls OpenAI
     to group, categorize, and summarize the data for the organizers.
     """
     # Get active SOS alerts
@@ -308,12 +392,12 @@ def get_alerts_summary():
     If there are no active alerts or messages, state: "All sectors clear. No incidents reported."
     """
     
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    if not gemini_key or gemini_key == "your-gemini-api-key":
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key or openai_key == "your-openai-api-key":
         # Rules-based organizer report fallback
         summary_text = get_mock_organizer_summary(active_sos, recent_chats)
     else:
-        summary_text = query_gemini_api(data_to_analyze, system_instruction)
+        summary_text = query_openai_api(data_to_analyze, system_instruction)
         if summary_text.startswith("[MOCK AI]"):
             summary_text = summary_text + get_mock_organizer_summary(active_sos, recent_chats)
             
@@ -353,34 +437,42 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"WebSocket error: {e}")
         manager.disconnect(websocket)
 
-# Helper fallback functions for when GEMINI_API_KEY is not configured
+# Helper fallback functions for when OPENAI_API_KEY is not configured
 
 def get_rules_based_mock_response(message: str, gates: List[Dict]) -> str:
     msg_lower = message.lower()
     
     # Check for medical
     if "medical" in msg_lower or "doctor" in msg_lower or "injured" in msg_lower or "hurt" in msg_lower or "faint" in msg_lower:
-        return "A medical team has been alerted. First Aid tents are located behind North Stand (Block 136) and South Stand (Block 118). If you are in immediate danger, please press the RED 'SOS' button in the app."
+        return "A medical team has been alerted. First Aid tents are located behind North Stand (Block 136) and South Stand (Block 118). If you are in immediate danger, please press the RED 'SOS' button in the app.\n\nPlease try to stay calm and remain where you are if it's safe to do so. A stadium staff member will be with you shortly. If you can, provide your exact row and seat number to anyone nearby to help guide responders to you more quickly."
         
     # Check for fire or danger
     if "fire" in msg_lower or "smoke" in msg_lower or "danger" in msg_lower or "fight" in msg_lower or "police" in msg_lower:
-        return "Security personnel have been notified. Please stay calm, move away from the hazard, and follow volunteer instructions. Press the RED 'SOS' button to send your exact seat coordinates."
-
+        return "Security and emergency services have been notified of your location. Please move away from the hazard immediately if you can do so safely.\n\nEvacuation routes are clearly marked with illuminated green exit signs above every concourse tunnel. Do not use elevators. Follow the instructions of the high-visibility safety wardens on site. For immediate dispatch, press the SOS button."
+        
     # Check for gates or crowd
     if "gate" in msg_lower or "crowd" in msg_lower or "congestion" in msg_lower or "jam" in msg_lower:
-        # Check if Gate A is crowded
         gate_a_status = next((g['status'] for g in gates if g['gate_id'] == 'Gate A'), 'Open')
         if gate_a_status == 'Crowded' or gate_a_status == 'Closed':
-            return "Gate A is currently crowded or closed. Seating block 136-142 can be accessed via Gate B (2 min walk). Please follow detour signage."
-        return "All stadium gates are operating normally. Please check the Wayfinding tab to view your route."
+            return "Gate A is currently experiencing heavy congestion and wait times exceed 20 minutes.\n\nWe recommend that attendees with tickets for Seating Blocks 136-142 instead use Gate B, which is a short 2-minute walk to the east. Please follow the detour signage outside the stadium."
+        return "All stadium gates are operating normally with minimal congestion.\n\nPlease check the Wayfinding tab on your screen to view the recommended route to your block."
         
-    # Check for food / bathrooms
-    if "food" in msg_lower or "eat" in msg_lower or "drink" in msg_lower or "beer" in msg_lower:
-        return "Food concessions and beverage hubs are located on the main concourse near Blocks 105, 117, 125, and 139."
-    if "toilet" in msg_lower or "bathroom" in msg_lower or "restroom" in msg_lower or "wc" in msg_lower:
-        return "Restrooms are available on all levels and are located adjacent to the entrance corridors of every seating block."
+    # Food or drink
+    if "food" in msg_lower or "hungry" in msg_lower or "eat" in msg_lower or "drink" in msg_lower or "water" in msg_lower or "thirsty" in msg_lower:
+        return "There are plenty of refreshment options available across the stadium:\n\n🍔 **Food Stalls**: Located on all concourses (Levels 1, 2, and 3) near blocks 105, 117, 125, and 139. You'll find a wide variety of cuisine including vegetarian and halal options.\n\n💧 **Rehydration Points**: Free drinking water fountains are located near the restrooms in every sector. Please stay hydrated during the match!"
         
-    return "Welcome to Etihad Stadium! I am your FIFA 2026 Assistant. I can help with gate directions, locating medical tents, food stalls, restrooms, or logging safety hazards. How can I help you?"
+    # Bathrooms
+    if "bathroom" in msg_lower or "toilet" in msg_lower or "restroom" in msg_lower or "washroom" in msg_lower:
+        return "🚻 Restrooms are located near the entrance corridor of every seating block on all levels. \n\nThey are equipped with accessible stalls and baby changing facilities. To avoid the queues, we recommend using the facilities either 15 minutes before half-time or just after the second half kicks off."
+        
+    # Default wayfinding/congestion response
+    open_gates = [g['gate_id'] for g in gates if g['status'] == 'Open']
+    if open_gates:
+        gate_suggestions = "Currently, " + ", ".join(open_gates) + " are Open with minimal congestion. We highly recommend using these gates for entry or exit."
+    else:
+        gate_suggestions = "Most gates are currently experiencing high traffic. Please be patient and follow the digital signage."
+        
+    return f"Welcome to Etihad Stadium! I am your GenAI Crowd Assistant for the FIFA 2026 World Cup.\n\nI can help you find your way around, check gate wait times, or locate facilities.\n\n{gate_suggestions}\n\nPlease ask me anything specific, like 'Where is the nearest food stall?' or 'Is Gate C crowded?'"
 
 def get_mock_organizer_summary(active_sos: List[Dict], recent_chats: List[Dict]) -> str:
     if not active_sos and not recent_chats:

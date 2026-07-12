@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { wsClient } from "@/utils/websocket";
-import StadiumMap, { GateData } from "@/components/StadiumMap";
+import StadiumMap, { GateData, POIData } from "@/components/StadiumMap";
 import AlertBanner from "@/components/AlertBanner";
 import SOSButton from "@/components/SOSButton";
 import ChatAssistant from "@/components/ChatAssistant";
@@ -24,6 +24,7 @@ export default function AudiencePortal() {
   });
 
   const [gates, setGates] = useState<GateData[]>([]);
+  const [pois, setPois] = useState<POIData[]>([]);
   const [sessionId, setSessionId] = useState("");
   const [recommendedGateId, setRecommendedGateId] = useState("");
   const [blockInfo, setBlockInfo] = useState<any>(null);
@@ -77,6 +78,7 @@ export default function AudiencePortal() {
   useEffect(() => {
     setSessionId("session_" + Math.random().toString(36).substring(2, 9));
     fetchGates();
+    fetchPOIs();
 
     if (wsClient) {
       wsClient.connect();
@@ -110,7 +112,7 @@ export default function AudiencePortal() {
       return () => {
         unsubGate();
         unsubMass();
-        wsClient.disconnect();
+        if (wsClient) wsClient.disconnect();
       };
     }
   }, []);
@@ -148,6 +150,19 @@ export default function AudiencePortal() {
       }
     } catch (e) {
       console.error("Failed to fetch initial gates:", e);
+    }
+  };
+
+  // Fetch POIs
+  const fetchPOIs = async () => {
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/pois");
+      if (res.ok) {
+        const data = await res.json();
+        setPois(data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch POIs:", e);
     }
   };
 
@@ -212,14 +227,14 @@ export default function AudiencePortal() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between pb-8 select-none">
+    <div className="min-h-screen bg-[#0038FF] text-white flex flex-col items-center justify-between pb-8 select-none">
 
       {/* ── Sticky Mass Notification Bounce Banner ───────────────────────────── */}
       {massNotification && (
-        <div className="fixed bottom-6 left-4 right-4 z-50 bg-indigo-600 border border-indigo-400 p-4 rounded-xl shadow-2xl flex gap-3 items-center text-white animate-bounce max-w-md mx-auto">
-          <Bell className="w-5 h-5 flex-shrink-0 text-amber-300" />
+        <div className="fixed bottom-6 left-4 right-4 z-50 bg-[#CCFF00] border-4 border-black p-4 rounded-xl shadow-[8px_8px_0_0_rgba(0,0,0,1)] flex gap-3 items-center text-black animate-bounce max-w-md mx-auto">
+          <Bell className="w-5 h-5 flex-shrink-0 text-black" />
           <div className="flex-1">
-            <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">ANNOUNCEMENT:</span>
+            <span className="text-[10px] font-black uppercase tracking-wider text-black">ANNOUNCEMENT:</span>
             <p className="text-xs font-bold leading-tight mt-0.5">{massNotification}</p>
           </div>
         </div>
@@ -227,22 +242,22 @@ export default function AudiencePortal() {
 
       {/* ── Notification Drawer ───────────────────────────────────────────────── */}
       {showNotifDrawer && (
-        <div className="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm flex justify-end">
+        <div className="fixed inset-0 z-40 bg-[#0038FF]/80 backdrop-blur-sm flex justify-end">
           <div
             ref={drawerRef}
-            className="w-full max-w-sm bg-slate-900 border-l border-slate-800 h-full flex flex-col shadow-2xl"
+            className="w-full max-w-sm bg-white border-l-4 border-black h-full flex flex-col shadow-2xl text-black"
           >
             {/* Drawer Header */}
-            <div className="flex justify-between items-center px-5 py-4 border-b border-slate-800 flex-shrink-0">
+            <div className="flex justify-between items-center px-5 py-4 border-b-4 border-black flex-shrink-0">
               <div className="flex items-center gap-3">
-                <div className="bg-indigo-500/15 p-2 rounded-lg">
-                  <Bell className="w-4 h-4 text-indigo-400" />
+                <div className="bg-[#0038FF] p-2 rounded-lg border-2 border-black shadow-[2px_2px_0_0_#000]">
+                  <Bell className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-black uppercase tracking-wider text-slate-100">
+                  <h2 className="text-sm font-black uppercase tracking-wider text-black">
                     Notification Log
                   </h2>
-                  <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                  <p className="text-[10px] text-black/60 font-semibold uppercase tracking-wider">
                     {notifications.length} announcement{notifications.length !== 1 ? "s" : ""} received
                   </p>
                 </div>
@@ -252,31 +267,31 @@ export default function AudiencePortal() {
                   <button
                     onClick={handleClearAll}
                     title="Clear all notifications"
-                    className="text-slate-500 hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-red-500/10"
+                    className="text-black/60 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 )}
                 <button
                   onClick={() => setShowNotifDrawer(false)}
-                  className="text-slate-400 hover:text-slate-100 transition-colors p-1.5 rounded-lg hover:bg-slate-800"
+                  className="text-black/60 hover:text-black transition-colors p-1.5 rounded-lg hover:bg-black/5"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5 font-bold" />
                 </button>
               </div>
             </div>
 
             {/* Notification List */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-600 py-16 gap-3">
-                  <div className="bg-slate-800/50 p-5 rounded-full">
-                    <Bell className="w-8 h-8 text-slate-700" />
+                <div className="flex flex-col items-center justify-center h-full text-black/40 py-16 gap-3">
+                  <div className="bg-black/5 p-5 rounded-full border-2 border-black/10">
+                    <Bell className="w-8 h-8 text-black/20" />
                   </div>
-                  <p className="text-xs font-black uppercase tracking-wider text-center text-slate-600">
+                  <p className="text-xs font-black uppercase tracking-wider text-center text-black/60">
                     No notifications yet
                   </p>
-                  <p className="text-[10px] text-slate-700 font-medium text-center max-w-[200px] leading-relaxed">
+                  <p className="text-[10px] text-black/50 font-bold text-center max-w-[200px] leading-relaxed">
                     Stadium announcements broadcast by the organizer will appear here
                   </p>
                 </div>
@@ -284,29 +299,29 @@ export default function AudiencePortal() {
                 notifications.map((notif, idx) => (
                   <div
                     key={notif.id}
-                    className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-2 hover:border-slate-700 transition-colors"
+                    className="bg-[#F8F9FA] border-2 border-transparent hover:border-black rounded-xl p-3.5 space-y-2 hover:shadow-[4px_4px_0_0_#000] transition-all"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <div className="bg-indigo-500/20 p-1 rounded">
-                          <Megaphone className="w-3 h-3 text-indigo-400" />
+                        <div className="bg-[#0038FF] p-1 rounded border border-black shadow-[1px_1px_0_0_#000]">
+                          <Megaphone className="w-3 h-3 text-white" />
                         </div>
-                        <span className="text-[9px] font-black uppercase tracking-wider text-indigo-400">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-[#0038FF]">
                           Stadium Announcement
                         </span>
                       </div>
-                      <span className="text-[9px] text-slate-600 font-medium flex-shrink-0">
+                      <span className="text-[9px] text-black/60 font-bold flex-shrink-0">
                         {formatDate(notif.timestamp)}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-200 font-medium leading-relaxed">
+                    <p className="text-xs text-black font-black leading-relaxed">
                       {notif.message}
                     </p>
-                    <div className="flex items-center gap-1 text-[9px] text-slate-600 font-medium">
+                    <div className="flex items-center gap-1 text-[9px] text-black/60 font-bold">
                       <Clock className="w-2.5 h-2.5" />
                       <span>{formatTime(notif.timestamp)}</span>
                       {idx === 0 && (
-                        <span className="ml-auto text-[9px] font-black uppercase text-emerald-500/70 tracking-wider">
+                        <span className="ml-auto text-[9px] font-black uppercase text-[#0038FF] tracking-wider">
                           Latest
                         </span>
                       )}
@@ -329,37 +344,37 @@ export default function AudiencePortal() {
       )}
 
       {/* ── Header ───────────────────────────────────────────────────────────── */}
-      <header className="w-full border-b border-slate-900 bg-slate-950/80 backdrop-blur-md px-4 py-3 flex justify-between items-center z-10 sticky top-0">
-        <Link href="/" className="flex items-center gap-1.5 text-slate-400 hover:text-slate-100 transition-colors">
+      <header className="w-full border-b-4 border-black bg-[#0038FF] px-4 py-3 flex justify-between items-center z-10 sticky top-0 shadow-[0_8px_0_0_rgba(0,0,0,0.1)]">
+        <Link href="/" className="flex items-center gap-1.5 text-white hover:text-[#CCFF00] transition-colors">
           <ArrowLeft className="w-4 h-4" />
-          <span className="text-xs font-bold uppercase tracking-wider">Exit</span>
+          <span className="text-xs font-black uppercase tracking-wider">Exit</span>
         </Link>
         <div className="flex items-center gap-2">
-          <div className="bg-amber-500 text-slate-950 px-2 py-0.5 rounded font-black text-[10px] tracking-wider uppercase">
+          <div className="bg-[#CCFF00] text-black border-2 border-black shadow-[2px_2px_0_0_#000] px-2 py-0.5 rounded font-black text-[10px] tracking-wider uppercase">
             FIFA AUDIENCE
           </div>
-          <span className="text-[10px] font-black text-slate-100 tracking-wider">WAYFINDING</span>
+          <span className="text-[10px] font-black text-white tracking-wider">WAYFINDING</span>
         </div>
         <div className="flex items-center gap-2">
           {/* Notification Bell with unread badge */}
           <button
             id="notification-bell-btn"
             onClick={handleOpenDrawer}
-            className="relative p-1.5 rounded-lg hover:bg-slate-800 transition-colors duration-200"
+            className="relative p-1.5 rounded-lg border-2 border-transparent hover:border-white transition-colors duration-200"
             title="Open notification log"
           >
             <Bell
-              className={`w-4 h-4 transition-colors ${
-                unreadCount > 0 ? "text-indigo-400" : "text-slate-500"
+              className={`w-5 h-5 transition-colors ${
+                unreadCount > 0 ? "text-[#CCFF00] fill-[#CCFF00]" : "text-white"
               }`}
             />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-indigo-500 text-white text-[8px] font-black rounded-full flex items-center justify-center px-0.5 leading-none animate-pulse shadow-lg shadow-indigo-500/30">
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 border border-black text-white text-[8px] font-black rounded-full flex items-center justify-center px-0.5 leading-none animate-pulse">
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
           </button>
-          <Radio className="w-4 h-4 text-emerald-500 animate-pulse" />
+          <Radio className="w-5 h-5 text-[#CCFF00] animate-pulse" />
         </div>
       </header>
 
@@ -369,24 +384,24 @@ export default function AudiencePortal() {
           /* TICKET INPUT STEP */
           <div className="my-auto space-y-6">
             <div className="text-center">
-              <div className="w-12 h-12 bg-amber-500/10 text-amber-500 p-3 rounded-full mx-auto flex items-center justify-center mb-3">
-                <Ticket className="w-6 h-6" />
+              <div className="w-16 h-16 bg-white text-[#0038FF] border-[3px] border-black shadow-[4px_4px_0_0_#000] p-4 rounded-full mx-auto flex items-center justify-center mb-4">
+                <Ticket className="w-8 h-8" />
               </div>
-              <h2 className="text-xl font-black uppercase tracking-wider">Welcome Spectator</h2>
-              <p className="text-xs text-slate-400 mt-1 font-medium leading-relaxed">
+              <h2 className="text-2xl font-black uppercase tracking-wider">Welcome Spectator</h2>
+              <p className="text-xs text-white/80 mt-1 font-medium leading-relaxed max-w-xs mx-auto">
                 Please enter your FIFA ticket seating details to construct your interactive Etihad wayfinding path.
               </p>
             </div>
 
-            <form onSubmit={handleSubmitTicket} className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4 shadow-xl">
+            <form onSubmit={handleSubmitTicket} className="bg-white text-black border-4 border-black p-6 rounded-2xl space-y-4 shadow-[8px_8px_0_0_#000]">
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1.5">
+                <label className="block text-[10px] font-black uppercase text-black/60 tracking-wider mb-1.5">
                   Seating Block (Etihad Model)
                 </label>
                 <select
                   value={ticket.block}
                   onChange={(e) => setTicket({ ...ticket, block: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-2.5 text-xs text-slate-100 outline-none"
+                  className="w-full bg-[#F8F9FA] border-2 border-black focus:border-[#0038FF] rounded-xl px-3 py-2.5 text-xs text-black font-bold outline-none"
                 >
                   <optgroup label="North Stand (Gates A/B)">
                     <option value="136">Block 136</option>
@@ -417,31 +432,31 @@ export default function AudiencePortal() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1.5">Row</label>
+                  <label className="block text-[10px] font-black uppercase text-black/60 tracking-wider mb-1.5">Row</label>
                   <input
                     type="text"
                     value={ticket.row}
                     onChange={(e) => setTicket({ ...ticket, row: e.target.value.toUpperCase() })}
                     placeholder="e.g. G"
                     maxLength={2}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-slate-100 outline-none"
+                    className="w-full bg-[#F8F9FA] border-2 border-black focus:border-[#0038FF] rounded-xl px-3 py-2 text-xs text-black font-bold outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1.5">Seat Number</label>
+                  <label className="block text-[10px] font-black uppercase text-black/60 tracking-wider mb-1.5">Seat Number</label>
                   <input
                     type="number"
                     value={ticket.seat}
                     onChange={(e) => setTicket({ ...ticket, seat: e.target.value })}
                     placeholder="e.g. 15"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-slate-100 outline-none"
+                    className="w-full bg-[#F8F9FA] border-2 border-black focus:border-[#0038FF] rounded-xl px-3 py-2 text-xs text-black font-bold outline-none"
                   />
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold uppercase py-3 rounded-xl text-xs tracking-wider transition-all duration-200 shadow-lg shadow-amber-500/10 mt-2"
+                className="w-full bg-[#CCFF00] hover:bg-[#b3ff00] text-black border-2 border-black font-black uppercase py-3 rounded-xl text-xs tracking-wider transition-all duration-200 shadow-[4px_4px_0_0_#000] mt-2 active:translate-y-1 active:shadow-none"
               >
                 Generate Path
               </button>
@@ -458,22 +473,22 @@ export default function AudiencePortal() {
             />
 
             {/* Seating Details Card */}
-            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex justify-between items-center shadow-lg">
+            <div className="bg-white border-4 border-black text-black p-4 rounded-xl flex justify-between items-center shadow-[4px_4px_0_0_#000]">
               <div>
-                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Your Seating Details</span>
-                <h3 className="text-sm font-black uppercase text-slate-100 mt-0.5">
+                <span className="text-[9px] font-black uppercase tracking-wider text-black/60">Your Seating Details</span>
+                <h3 className="text-sm font-black uppercase text-black mt-0.5">
                   Block {ticket.block} • Row {ticket.row} • Seat {ticket.seat}
                 </h3>
-                <p className="text-[10px] text-slate-400 font-medium">
+                <p className="text-[10px] text-black/80 font-bold">
                   {blockInfo?.stand} • Level {ticket.block[0]}
                 </p>
               </div>
               <div className="text-right">
-                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Assigned Gate</span>
-                <div className="text-sm font-extrabold text-emerald-400 uppercase mt-0.5 flex gap-1 items-center justify-end">
+                <span className="text-[9px] font-black uppercase tracking-wider text-black/60">Assigned Gate</span>
+                <div className="text-sm font-black text-[#0038FF] uppercase mt-0.5 flex gap-1 items-center justify-end">
                   <span>{activeGateId}</span>
                   {activeGateId !== recommendedGateId && (
-                    <span className="text-[10px] text-amber-500 animate-pulse font-extrabold">(Rerouted)</span>
+                    <span className="text-[10px] text-[#CCFF00] bg-black px-1.5 rounded-full border-2 border-black animate-pulse font-black ml-1">(Rerouted)</span>
                   )}
                 </div>
               </div>
@@ -482,13 +497,14 @@ export default function AudiencePortal() {
             {/* Wayfinding Stadium Map */}
             <div className="space-y-2">
               <div className="flex justify-between items-center px-1">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Etihad Map Wayfinding</span>
-                <span className="text-[9px] text-slate-400 bg-slate-900 px-2 py-0.5 rounded font-bold border border-slate-800">
+                <span className="text-[10px] font-black uppercase tracking-wider text-white">Etihad Map Wayfinding</span>
+                <span className="text-[9px] text-black bg-[#CCFF00] px-2 py-0.5 rounded-full font-black border-2 border-black shadow-[2px_2px_0_0_#000]">
                   Target: {blockInfo?.stand}
                 </span>
               </div>
               <StadiumMap
                 gates={gates}
+                pois={pois}
                 selectedBlock={ticket.block}
                 selectedGateId={activeGateId}
                 blockCoords={blockInfo ? { x: blockInfo.x, y: blockInfo.y } : null}
@@ -498,11 +514,11 @@ export default function AudiencePortal() {
             {/* Emergency & AI Concourse Support */}
             <div className="grid grid-cols-1 gap-6 mt-4">
               <div className="space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-1">Concourse Assistant</span>
-                <ChatAssistant sessionId={sessionId} />
+                <span className="text-[10px] font-black uppercase tracking-wider text-white px-1">Concourse Assistant</span>
+                <ChatAssistant sessionId={sessionId} seat={ticket.seat} block={ticket.block} gate={activeGateId || "Gate A"} />
               </div>
               <div className="space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-1">Emergency SOS Trigger</span>
+                <span className="text-[10px] font-black uppercase tracking-wider text-white px-1">Emergency SOS Trigger</span>
                 <SOSButton onTrigger={handleSOSTrigger} isLoading={sosLoading} />
               </div>
             </div>
@@ -510,7 +526,7 @@ export default function AudiencePortal() {
             {/* Back Button */}
             <button
               onClick={() => setTicketSubmitted(false)}
-              className="w-full text-slate-500 hover:text-slate-300 font-bold uppercase tracking-wider text-[10px] text-center pt-2"
+              className="w-full text-white hover:text-[#CCFF00] font-black uppercase tracking-wider text-[10px] text-center pt-2 transition-colors"
             >
               Change Seating details
             </button>
@@ -519,7 +535,7 @@ export default function AudiencePortal() {
       </div>
 
       {/* Footer */}
-      <footer className="w-full text-center text-[8px] text-slate-600 font-bold uppercase tracking-wider mt-4">
+      <footer className="w-full text-center text-[8px] text-white/50 font-bold uppercase tracking-wider mt-4">
         FIFA Crowd Management Mobile Portal
       </footer>
     </div>
