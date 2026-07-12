@@ -1,6 +1,6 @@
 # Setup Guide: FIFA 2026 Crowd Management Web Application
 
-Welcome to the FIFA 2026 Crowd Management App setup guide. This document provides step-by-step instructions to get the full stack (Next.js frontend, FastAPI backend, and OpenCV CCTV simulation) running locally on your machine.
+Welcome to the FIFA 2026 Crowd Management App setup guide! This document provides step-by-step instructions so anyone cloning this repository can get the full stack (Next.js frontend, FastAPI backend, and OpenCV CCTV simulation) running locally on their machine with ease.
 
 ---
 
@@ -12,94 +12,88 @@ Before you begin, ensure you have the following installed on your machine:
    - Verify installation: `node -v` and `npm -v`
 2. **Python** (v3.9 or higher) and **pip**
    - Verify installation: `python --version` and `pip --version`
-3. **Git** (optional, for version control)
+3. **Git**
+   - Verify installation: `git --version`
 
 ---
 
-## 1. Quick Start (Windows Only)
+## Step 1: Clone the Repository
 
-If you are on Windows, we have provided a convenient 1-click batch script to start both the Frontend and Backend servers simultaneously.
+First, clone the project to your local machine and navigate into the project directory:
+
+```bash
+git clone https://github.com/AkashChaman/FIFA.git
+cd FIFA
+```
+
+---
+
+## Step 2: Configure Environment Variables
+
+The backend requires a few environment variables for AI and Cloud features. 
+
+Navigate into the `backend/` directory and create a `.env` file:
+```env
+# .env file (inside backend folder)
+GEMINI_API_KEY="your_gemini_api_key_here"
+SUPABASE_URL="your_supabase_url_here"
+SUPABASE_KEY="your_supabase_key_here"
+```
+- **Gemini API Key**: Powers the GenAI chat assistant. If omitted, the app will gracefully fallback to a rules-based mock engine.
+- **Supabase Credentials**: Used for cloud database syncing. If omitted, the app automatically initializes a local SQLite database (`fifa_local.db`) so you can run entirely offline.
+
+---
+
+## Step 3: Start the Application
+
+### Option A: The 1-Click Method (Windows Only - Recommended)
+
+We have provided a convenient batch script that automatically installs all dependencies and starts both servers.
 
 1. Double-click the `run_local.bat` file located in the root of the project.
-2. Two command prompt windows will open:
-   - **Backend**: Starts FastAPI on `http://localhost:8000`
-   - **Frontend**: Starts Next.js on `http://localhost:3000`
-3. Skip to **Step 4** (Running the CCTV Simulator).
+2. The script will automatically:
+   - Install Python dependencies (`pip install -r requirements.txt`)
+   - Install Node.js dependencies (`npm install`)
+   - Start the FastAPI backend on `http://localhost:8000`
+   - Start the Next.js frontend on `http://localhost:3000`
+3. Skip to **Step 4**.
 
-*If you are on macOS/Linux, or prefer to start the servers manually, proceed to Step 2.*
+### Option B: Manual Setup (macOS / Linux / Windows)
 
----
+If you prefer to start the servers manually, follow these steps:
 
-## 2. Backend Setup (FastAPI & Database)
+**Terminal 1 (Backend):**
+```bash
+cd backend
+pip install -r requirements.txt
+python main.py
+```
 
-The backend powers the real-time WebSocket communication, database interactions, and the GenAI integrations.
-
-1. **Navigate to the Backend Directory**:
-   ```bash
-   cd backend
-   ```
-
-2. **Install Python Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-   > *Note: This will install FastAPI, Uvicorn, Supabase, Google Generative AI, OpenCV, and Ultralytics (YOLOv8).*
-
-3. **Configure Environment Variables**:
-   Create or edit the `.env` file inside the `backend/` directory:
-   ```env
-   # .env file
-   GEMINI_API_KEY="your_gemini_api_key_here"
-   SUPABASE_URL="your_supabase_url_here"
-   SUPABASE_KEY="your_supabase_key_here"
-   ```
-   - **Gemini API Key**: Powers the GenAI chat assistant and incident grouping. If omitted, the app will gracefully fallback to a rules-based mock engine.
-   - **Supabase Credentials**: Used for cloud database syncing. If omitted, the app automatically initializes a local SQLite database (`fifa_local.db`) so you can run entirely offline.
-
-4. **Start the Backend Server**:
-   ```bash
-   python main.py
-   ```
-   *Alternatively (using Uvicorn directly):*
-   ```bash
-   python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-   ```
-   The API will be available at `http://127.0.0.1:8000`.
+**Terminal 2 (Frontend):**
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 ---
 
-## 3. Frontend Setup (Next.js & Tailwind CSS)
+## Step 4: Access the Application
 
-The frontend provides the Audience Portal (Mobile) and Organizer Control Center (Desktop).
+Open your web browser and explore the different modules:
 
-1. **Navigate to the Frontend Directory** (in a new terminal):
-   ```bash
-   cd frontend
-   ```
-
-2. **Install Node Modules**:
-   ```bash
-   npm install
-   ```
-
-3. **Start the Development Server**:
-   ```bash
-   npm run dev
-   ```
-
-4. **Access the Application**:
-   Open your web browser and navigate to:
-   - **Landing Page**: [http://localhost:3000](http://localhost:3000)
-   - **Audience Portal**: [http://localhost:3000/audience](http://localhost:3000/audience)
-   - **Organizer Command Center**: [http://localhost:3000/organizer](http://localhost:3000/organizer)
+- **Landing Page**: [http://localhost:3000](http://localhost:3000)
+- **Audience Portal**: [http://localhost:3000/audience](http://localhost:3000/audience)
+- **Organizer Command Center**: [http://localhost:3000/organizer](http://localhost:3000/organizer)
+- **Etihad Stadium Model**: [http://localhost:3000/model](http://localhost:3000/model)
 
 ---
 
-## 4. Running the CCTV Computer Vision Simulator
+## Step 5: Running the CCTV Computer Vision Simulator
 
 The CCTV Simulator uses OpenCV and YOLOv8 to simulate a camera feed monitoring crowd levels, automatically updating Gate congestion statuses in real-time.
 
-1. Ensure your **FastAPI Backend** is running (Step 2).
+1. Ensure your **FastAPI Backend** is running (from Step 3).
 2. Open a new terminal and navigate to the `backend/` directory:
    ```bash
    cd backend
