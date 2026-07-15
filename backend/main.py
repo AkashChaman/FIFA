@@ -2,56 +2,74 @@ import os
 import json
 import asyncio
 import datetime
+import logging
 import requests
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Dict, Optional
-from dotenv import load_dotenv
+from typing import List, Dict, Optional, Any
 
-import supabase_db as db
+import db
 import mock_data
 
-load_dotenv()
+# Setup logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("backend")
 
-app = FastAPI(title="FIFA 2026 Crowd Management API")
+app = FastAPI(
+    title="FIFA 2026 Crowd Management API",
+    description="Backend services for managing crowd flows, wayfinding routes, and SOS pings during FIFA 2026.",
+    version="1.0.0"
+)
 
 # Enable CORS for frontend integration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify frontend origin e.g. ["http://localhost:3000"]
+    allow_origins=["*"],  # In production, restrict this to specific origins (e.g. ["http://localhost:3000"])
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# WebSocket Connection Manager
 class ConnectionManager:
-    def __init__(self):
+    """
+    Manages active WebSocket connections for real-time broadcasts.
+    """
+    def __init__(self) -> None:
         self.active_connections: List[WebSocket] = []
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket) -> None:
+        """
+        Accepts a WebSocket connection and registers it in the manager.
+        """
         await websocket.accept()
         self.active_connections.append(websocket)
-        print(f"Client connected. Total active connections: {len(self.active_connections)}")
+        logger.info(f"New client connected. Active connections: {len(self.active_connections)}")
 
-    def disconnect(self, websocket: WebSocket):
+    def disconnect(self, websocket: WebSocket) -> None:
+        """
+        Deregisters a WebSocket connection upon disconnect.
+        """
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-            print(f"Client disconnected. Total active connections: {len(self.active_connections)}")
+            logger.info(f"Client disconnected. Active connections: {len(self.active_connections)}")
 
-    async def broadcast(self, message: dict):
-        print(f"Broadcasting message: {message}")
+    async def broadcast(self, message: Dict[str, Any]) -> None:
+        """
+        Broadcasts a JSON message to all active WebSocket clients.
+        """
+        logger.info(f"Broadcasting WebSocket message: {message.get('type')}")
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
             except Exception as e:
-                print(f"Error broadcasting to connection: {e}")
-                # We'll clean up dead connections later during disconnects
+                logger.error(f"Error sending message to connection: {e}")
+
 
 manager = ConnectionManager()
 
-# Pydantic models
+# --- Pydantic Request/Response Payloads ---
+
 class GateOverridePayload(BaseModel):
     gate_id: str
     status: str  # 'Open', 'Crowded', 'Closed'
@@ -70,17 +88,36 @@ class ChatPayload(BaseModel):
     block: Optional[str] = ""
     gate: Optional[str] = ""
 
-# Helper to query OpenAI API
-def query_openai_api(prompt: str, system_instruction: str = "") -> str:
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key or openai_key == "your-openai-api-key":
-        return "[MOCK AI] (Add OPENAI_API_KEY to .env to enable live GenAI) "
+# --- Helper Functions ---
+
+def is_genai_configured() -> bool:
+    """
+    Checks if a valid Groq API Key has been configured in the environment.
+    """
+    groq_key = os.getenv("GROQ_API_KEY")
+    return bool(groq_key and groq_key not in ["", "your-groq-api-key", "your_groq_api_key_here"])
+
+def query_genai_api(prompt: str, system_instruction: str = "") -> str:
+    """
+    Queries the Groq Llama 3 API for natural language assistance.
+    
+    Args:
+        prompt (str): The prompt message from the user.
+        system_instruction (str): Core context and instructions for the model.
+        
+    Returns:
+        str: Response text from the model, or mock/error messages on failure.
+    """
+    groq_key = os.getenv("GROQ_API_KEY")
+    
+    if not groq_key or groq_key in ["", "your-groq-api-key", "your_groq_api_key_here"]:
+        return "[MOCK AI] (Add GROQ_API_KEY to .env to enable live GenAI) "
         
     try:
-        url = "https://api.openai.com/v1/chat/completions"
+        url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {openai_key}"
+            "Authorization": f"Bearer {groq_key}"
         }
         
         messages = []
@@ -89,7 +126,7 @@ def query_openai_api(prompt: str, system_instruction: str = "") -> str:
         messages.append({"role": "user", "content": prompt})
         
         payload = {
-            "model": "gpt-4o-mini",
+            "model": "llama-3.3-70b-versatile",
             "messages": messages,
             "temperature": 0.4,
             "max_tokens": 1200
@@ -102,27 +139,36 @@ def query_openai_api(prompt: str, system_instruction: str = "") -> str:
                 text_response = res_json['choices'][0]['message']['content']
                 return text_response.strip()
             except (KeyError, IndexError):
-                return "Error parsing OpenAI response."
+                logger.error("Failed to parse response structure from Groq.")
+                return "Error parsing Groq response."
         else:
-            return f"OpenAI API returned error code {response.status_code}: {response.text}"
+            logger.error(f"Groq API returned error status {response.status_code}: {response.text}")
+            return f"Groq API returned error code {response.status_code}: {response.text}"
     except Exception as e:
-        return f"Exception occurred while calling OpenAI API: {str(e)}"
+        logger.error(f"Exception occurred while calling Groq API: {e}")
+        return f"Exception occurred while calling Groq API: {str(e)}"
 
-# REST Endpoints
+# --- REST Endpoints ---
 
-@app.get("/api/pois")
-def get_pois():
-    """Returns the static Points of Interest (POIs) such as Food Stalls, Restrooms, and Rehydration Points."""
+@app.get("/api/pois", response_model=List[Dict[str, Any]])
+def get_pois() -> List[Dict[str, Any]]:
+    """
+    Returns static Points of Interest (POIs) such as Food Stalls, Restrooms,
+    and Rehydration Points around Etihad Stadium.
+    """
     try:
         return mock_data.POIS
     except Exception as e:
+        logger.error(f"Error fetching POIs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/gate-status")
-def get_all_gates():
+@app.get("/api/gate-status", response_model=List[Dict[str, Any]])
+def get_all_gates() -> List[Dict[str, Any]]:
+    """
+    Retrieves real-time status of all gates merged with static coordinates and descriptions.
+    """
     try:
         gates = db.get_gate_status()
-        # Merge static metadata (like coordinates, description, alternative gates)
         merged_gates = []
         for g in gates:
             gate_id = g.get("gate_id")
@@ -131,10 +177,15 @@ def get_all_gates():
             merged_gates.append(merged)
         return merged_gates
     except Exception as e:
+        logger.error(f"Error fetching all gates statuses: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/gate-status/override")
-async def override_gate_status(payload: GateOverridePayload):
+@app.post("/api/gate-status/override", response_model=Dict[str, Any])
+async def override_gate_status(payload: GateOverridePayload) -> Dict[str, Any]:
+    """
+    Manually overrides the operational status and crowd counts of a stadium gate.
+    Broadcasts the change via WebSockets in real-time.
+    """
     if payload.gate_id not in mock_data.GATES:
         raise HTTPException(status_code=400, detail=f"Invalid Gate ID: {payload.gate_id}")
     if payload.status not in ["Open", "Crowded", "Closed"]:
@@ -146,7 +197,6 @@ async def override_gate_status(payload: GateOverridePayload):
             status=payload.status,
             crowd_count=payload.crowd_count
         )
-        # Merge static details
         static_info = mock_data.GATES.get(payload.gate_id, {})
         full_gate_data = {**static_info, **updated_gate}
         
@@ -158,10 +208,15 @@ async def override_gate_status(payload: GateOverridePayload):
         
         return full_gate_data
     except Exception as e:
+        logger.error(f"Error overriding gate status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/sos")
-async def trigger_sos(payload: SOSAlertPayload):
+@app.post("/api/sos", response_model=Dict[str, Any])
+async def trigger_sos(payload: SOSAlertPayload) -> Dict[str, Any]:
+    """
+    Dispatches a new high-priority emergency SOS ping. Saves it to the database
+    and broadcasts it to the Organizer dashboard via WebSockets.
+    """
     try:
         alert = db.create_sos_alert(
             seat=payload.seat,
@@ -178,17 +233,25 @@ async def trigger_sos(payload: SOSAlertPayload):
         
         return {"status": "Success", "alert": alert}
     except Exception as e:
+        logger.error(f"Error triggering SOS alert: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/sos")
-def get_sos_alerts():
+@app.get("/api/sos", response_model=List[Dict[str, Any]])
+def get_sos_alerts() -> List[Dict[str, Any]]:
+    """
+    Retrieves all logged SOS emergencies.
+    """
     try:
         return db.get_sos_alerts()
     except Exception as e:
+        logger.error(f"Error retrieving SOS alerts: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/sos/resolve/{alert_id}")
-async def resolve_sos(alert_id: int):
+@app.post("/api/sos/resolve/{alert_id}", response_model=Dict[str, Any])
+async def resolve_sos(alert_id: int) -> Dict[str, Any]:
+    """
+    Resolves an active SOS incident and broadcasts the resolution state.
+    """
     try:
         resolved_alert = db.resolve_sos_alert(alert_id)
         
@@ -200,10 +263,14 @@ async def resolve_sos(alert_id: int):
         
         return {"status": "Success", "alert": resolved_alert}
     except Exception as e:
+        logger.error(f"Error resolving SOS alert {alert_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/sos/unresolve/{alert_id}")
-async def unresolve_sos(alert_id: int):
+@app.post("/api/sos/unresolve/{alert_id}", response_model=Dict[str, Any])
+async def unresolve_sos(alert_id: int) -> Dict[str, Any]:
+    """
+    Reopens a resolved SOS incident, moving it back to active queue.
+    """
     try:
         reopened_alert = db.unresolve_sos_alert(alert_id)
         
@@ -215,19 +282,26 @@ async def unresolve_sos(alert_id: int):
         
         return {"status": "Success", "alert": reopened_alert}
     except Exception as e:
+        logger.error(f"Error unresolving SOS alert {alert_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/api/chat")
-async def chat_assistant(payload: ChatPayload):
+@app.post("/api/chat", response_model=Dict[str, Any])
+async def chat_assistant(payload: ChatPayload) -> Dict[str, Any]:
+    """
+    Connects spectators with a contextual AI crowd assistant.
+    Reads current gate levels and location parameters to feed as context for LLM.
+    Detects critical emergencies, automatically creating SOS entries if required.
+    """
     # Log user message
     db.add_chat_log(payload.session_id, payload.message, "Audience")
     
-    # Compile Stadium context for OpenAI
+    # Compile Stadium context for LLM
     gates = db.get_gate_status()
     gate_context_list = []
     for g in gates:
-        gate_context_list.append(f"{g['gate_id']} ({mock_data.GATES[g['gate_id']]['name']}): Status={g['status']}, Crowd={g['crowd_count']}/{g['capacity']}")
+        gate_context_list.append(
+            f"{g['gate_id']} ({mock_data.GATES[g['gate_id']]['name']}): Status={g['status']}, Crowd={g['crowd_count']}/{g['capacity']}"
+        )
     gate_context = "\n".join(gate_context_list)
     
     # Build user location context
@@ -291,15 +365,14 @@ If the user's message describes or requests help with an emergency situation (me
 
 For all non-emergency messages, respond with plain text only (no JSON wrapper). Be thorough and helpful."""
     
-    # If API key is missing, use a rules-based fallback
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key or openai_key == "your-openai-api-key":
+    # If API key is missing, use rules-based fallback
+    if not is_genai_configured():
         response_text = get_rules_based_mock_response(payload.message, gates)
         return {"response": response_text, "sos_triggered": False}
     
-    raw_response = query_openai_api(payload.message, system_instruction)
+    raw_response = query_genai_api(payload.message, system_instruction)
     
-    # Check if the fallback tag was returned
+    # Check if fallback tag was returned
     if raw_response.startswith("[MOCK AI]"):
         response_text = raw_response + get_rules_based_mock_response(payload.message, gates)
         db.add_chat_log(payload.session_id, response_text, "AI")
@@ -309,7 +382,6 @@ For all non-emergency messages, respond with plain text only (no JSON wrapper). 
     sos_triggered = False
     response_text = raw_response
     try:
-        # Strip markdown code fences if present
         cleaned = raw_response.strip()
         if cleaned.startswith("```json"):
             cleaned = cleaned[7:]
@@ -325,7 +397,7 @@ For all non-emergency messages, respond with plain text only (no JSON wrapper). 
             response_text = parsed.get("response", raw_response)
             sos_message = parsed.get("sos_message", payload.message)
             
-            # Auto-trigger SOS alert using the user's ticket info
+            # Auto-trigger SOS alert using user ticket info
             alert = db.create_sos_alert(
                 seat=payload.seat or "Unknown",
                 block=payload.block or "Unknown",
@@ -339,7 +411,7 @@ For all non-emergency messages, respond with plain text only (no JSON wrapper). 
                 "data": alert
             })
     except (json.JSONDecodeError, KeyError, TypeError):
-        # Not JSON — normal text response, use as-is
+        # Non-JSON response, parse as normal chat text
         pass
     
     # Log AI response
@@ -347,30 +419,35 @@ For all non-emergency messages, respond with plain text only (no JSON wrapper). 
     
     return {"response": response_text, "sos_triggered": sos_triggered}
 
-@app.get("/api/alerts/summary")
-def get_alerts_summary():
+@app.get("/api/alerts/summary", response_model=Dict[str, str])
+def get_alerts_summary() -> Dict[str, str]:
     """
     GenAI Alert Command Center Endpoint:
-    Fetches all active SOS alerts and audience chat messages, then calls OpenAI
-    to group, categorize, and summarize the data for the organizers.
+    Fetches all active SOS alerts and audience chat messages, then calls Groq
+    to group, categorize, and summarize the data for organizers.
     """
-    # Get active SOS alerts
     sos_list = db.get_sos_alerts()
     active_sos = [s for s in sos_list if s['status'] == 'Active']
     
     # Get recent audience chat logs (last 50 messages)
-    conn = db.sqlite3.connect(db.SQLITE_DB_PATH)
-    conn.row_factory = db.sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM chat_logs WHERE sender = 'Audience' ORDER BY id DESC LIMIT 50")
-    recent_chats = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    
+    try:
+        conn = db.sqlite3.connect(db.SQLITE_DB_PATH)
+        conn.row_factory = db.sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM chat_logs WHERE sender = 'Audience' ORDER BY id DESC LIMIT 50")
+        recent_chats = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error fetching recent chat logs: {e}")
+        recent_chats = []
+        
     # Construct input text for analysis
     reports_text = []
     reports_text.append("--- ACTIVE SOS ALERTS ---")
     for s in active_sos:
-        reports_text.append(f"- Block {s['block']}, Seat {s['seat']} (Gate: {s['gate']}): '{s['message']}' (Time: {s['created_at']})")
+        reports_text.append(
+            f"- Block {s['block']}, Seat {s['seat']} (Gate: {s['gate']}): '{s['message']}' (Time: {s['created_at']})"
+        )
         
     reports_text.append("\n--- RECENT AUDIENCE CHAT REPORTS ---")
     for c in recent_chats:
@@ -392,22 +469,22 @@ def get_alerts_summary():
     If there are no active alerts or messages, state: "All sectors clear. No incidents reported."
     """
     
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key or openai_key == "your-openai-api-key":
-        # Rules-based organizer report fallback
+    if not is_genai_configured():
         summary_text = get_mock_organizer_summary(active_sos, recent_chats)
     else:
-        summary_text = query_openai_api(data_to_analyze, system_instruction)
+        summary_text = query_genai_api(data_to_analyze, system_instruction)
         if summary_text.startswith("[MOCK AI]"):
             summary_text = summary_text + get_mock_organizer_summary(active_sos, recent_chats)
             
     return {"summary": summary_text}
 
-@app.post("/api/notifications/broadcast")
-async def broadcast_notification(payload: Dict = Body(...)):
+@app.post("/api/notifications/broadcast", response_model=Dict[str, Any])
+async def broadcast_notification(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """
+    Broadcasts a mass announcement/notification to all connected mobile clients.
+    """
     message = payload.get("message", "Attention: Please follow stadium signage and volunteer guidance.")
     
-    # Broadcast mass notification
     await manager.broadcast({
         "type": "MASS_NOTIFICATION",
         "data": {
@@ -417,101 +494,140 @@ async def broadcast_notification(payload: Dict = Body(...)):
     })
     return {"status": "Success", "message": "Broadcast sent."}
 
-# WebSockets Endpoint
+# --- WebSockets Endpoint ---
+
 @app.websocket("/api/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket) -> None:
+    """
+    Handles duplex WebSocket connections for real-time crowd telemetry.
+    """
     await manager.connect(websocket)
     try:
-        # Keep connection alive, listen for any client messages if needed
         while True:
             data = await websocket.receive_text()
-            # Parse client heartbeat or client-sent command if applicable
             try:
                 message_json = json.loads(data)
-                print(f"Received WebSocket message from client: {message_json}")
+                logger.info(f"Received client WS payload: {message_json}")
             except Exception:
                 pass
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        logger.error(f"WebSocket execution error: {e}")
         manager.disconnect(websocket)
 
-# Helper fallback functions for when OPENAI_API_KEY is not configured
+# --- Rules-based fallback implementations (when GenAI API key is missing) ---
 
-def get_rules_based_mock_response(message: str, gates: List[Dict]) -> str:
+def get_rules_based_mock_response(message: str, gates: List[Dict[str, Any]]) -> str:
+    """
+    Generates rule-based responses if Groq GenAI is offline or key is unconfigured.
+    """
     msg_lower = message.lower()
     
-    # Check for medical
-    if "medical" in msg_lower or "doctor" in msg_lower or "injured" in msg_lower or "hurt" in msg_lower or "faint" in msg_lower:
-        return "A medical team has been alerted. First Aid tents are located behind North Stand (Block 136) and South Stand (Block 118). If you are in immediate danger, please press the RED 'SOS' button in the app.\n\nPlease try to stay calm and remain where you are if it's safe to do so. A stadium staff member will be with you shortly. If you can, provide your exact row and seat number to anyone nearby to help guide responders to you more quickly."
+    # Medical emergency query
+    if any(k in msg_lower for k in ["medical", "doctor", "injured", "hurt", "faint"]):
+        return (
+            "A medical team has been alerted. First Aid tents are located behind North Stand (Block 136) "
+            "and South Stand (Block 118). If you are in immediate danger, please press the RED 'SOS' button in the app.\n\n"
+            "Please try to stay calm and remain where you are if it's safe to do so. A stadium staff member will be "
+            "with you shortly. If you can, provide your exact row and seat number to anyone nearby to help guide responders."
+        )
         
-    # Check for fire or danger
-    if "fire" in msg_lower or "smoke" in msg_lower or "danger" in msg_lower or "fight" in msg_lower or "police" in msg_lower:
-        return "Security and emergency services have been notified of your location. Please move away from the hazard immediately if you can do so safely.\n\nEvacuation routes are clearly marked with illuminated green exit signs above every concourse tunnel. Do not use elevators. Follow the instructions of the high-visibility safety wardens on site. For immediate dispatch, press the SOS button."
+    # Safety hazards / Evacuation
+    if any(k in msg_lower for k in ["fire", "smoke", "danger", "fight", "police"]):
+        return (
+            "Security and emergency services have been notified of your location. Please move away from the hazard "
+            "immediately if you can do so safely.\n\nEvacuation routes are clearly marked with illuminated green exit "
+            "signs above every concourse tunnel. Do not use elevators. Follow the instructions of the high-visibility "
+            "safety wardens on site. For immediate dispatch, press the SOS button."
+        )
         
-    # Check for gates or crowd
-    if "gate" in msg_lower or "crowd" in msg_lower or "congestion" in msg_lower or "jam" in msg_lower:
+    # Congestion / Gates status queries
+    if any(k in msg_lower for k in ["gate", "crowd", "congestion", "jam"]):
         gate_a_status = next((g['status'] for g in gates if g['gate_id'] == 'Gate A'), 'Open')
-        if gate_a_status == 'Crowded' or gate_a_status == 'Closed':
-            return "Gate A is currently experiencing heavy congestion and wait times exceed 20 minutes.\n\nWe recommend that attendees with tickets for Seating Blocks 136-142 instead use Gate B, which is a short 2-minute walk to the east. Please follow the detour signage outside the stadium."
+        if gate_a_status in ['Crowded', 'Closed']:
+            return (
+                "Gate A is currently experiencing heavy congestion and wait times exceed 20 minutes.\n\n"
+                "We recommend that attendees with tickets for Seating Blocks 136-142 instead use Gate B, "
+                "which is a short 2-minute walk to the east. Please follow the detour signage outside the stadium."
+            )
         return "All stadium gates are operating normally with minimal congestion.\n\nPlease check the Wayfinding tab on your screen to view the recommended route to your block."
         
-    # Food or drink
-    if "food" in msg_lower or "hungry" in msg_lower or "eat" in msg_lower or "drink" in msg_lower or "water" in msg_lower or "thirsty" in msg_lower:
-        return "There are plenty of refreshment options available across the stadium:\n\n🍔 **Food Stalls**: Located on all concourses (Levels 1, 2, and 3) near blocks 105, 117, 125, and 139. You'll find a wide variety of cuisine including vegetarian and halal options.\n\n💧 **Rehydration Points**: Free drinking water fountains are located near the restrooms in every sector. Please stay hydrated during the match!"
+    # Refreshments
+    if any(k in msg_lower for k in ["food", "hungry", "eat", "drink", "water", "thirsty"]):
+        return (
+            "There are plenty of refreshment options available across the stadium:\n\n"
+            "🍔 **Food Stalls**: Located on all concourses (Levels 1, 2, and 3) near blocks 105, 117, 125, and 139. "
+            "You'll find a wide variety of cuisine including vegetarian and halal options.\n\n"
+            "💧 **Rehydration Points**: Free drinking water fountains are located near the restrooms in every sector. "
+            "Please stay hydrated during the match!"
+        )
         
-    # Bathrooms
-    if "bathroom" in msg_lower or "toilet" in msg_lower or "restroom" in msg_lower or "washroom" in msg_lower:
-        return "🚻 Restrooms are located near the entrance corridor of every seating block on all levels. \n\nThey are equipped with accessible stalls and baby changing facilities. To avoid the queues, we recommend using the facilities either 15 minutes before half-time or just after the second half kicks off."
+    # Restrooms
+    if any(k in msg_lower for k in ["bathroom", "toilet", "restroom", "washroom"]):
+        return (
+            "Restrooms are located near the entrance corridor of every seating block on all levels.\n\n"
+            "They are equipped with accessible stalls and baby changing facilities. To avoid the queues, we "
+            "recommend using the facilities either 15 minutes before half-time or just after the second half kicks off."
+        )
         
-    # Default wayfinding/congestion response
+    # Default wayfinding/navigation
     open_gates = [g['gate_id'] for g in gates if g['status'] == 'Open']
     if open_gates:
-        gate_suggestions = "Currently, " + ", ".join(open_gates) + " are Open with minimal congestion. We highly recommend using these gates for entry or exit."
+        gate_suggestions = f"Currently, {', '.join(open_gates)} are Open with minimal congestion. We highly recommend using these gates for entry or exit."
     else:
-        gate_suggestions = "Most gates are currently experiencing high traffic. Please be patient and follow the digital signage."
+        gate_suggestions = "Most gates are currently experiencing high traffic. Please be patient and follow digital signage."
         
-    return f"Welcome to Etihad Stadium! I am your GenAI Crowd Assistant for the FIFA 2026 World Cup.\n\nI can help you find your way around, check gate wait times, or locate facilities.\n\n{gate_suggestions}\n\nPlease ask me anything specific, like 'Where is the nearest food stall?' or 'Is Gate C crowded?'"
+    return (
+        f"Welcome to Etihad Stadium! I am your GenAI Crowd Assistant for the FIFA 2026 World Cup.\n\n"
+        f"I can help you find your way around, check gate wait times, or locate facilities.\n\n"
+        f"{gate_suggestions}\n\nPlease ask me anything specific, like 'Where is the nearest food stall?' or 'Is Gate C crowded?'"
+    )
 
-def get_mock_organizer_summary(active_sos: List[Dict], recent_chats: List[Dict]) -> str:
+def get_mock_organizer_summary(active_sos: List[Dict[str, Any]], recent_chats: List[Dict[str, Any]]) -> str:
+    """
+    Generates rule-based Command Center summary if Groq GenAI is offline or key is unconfigured.
+    """
     if not active_sos and not recent_chats:
         return "### Live Crowd Analysis\nAll sectors clear. No incidents reported."
         
-    # Count alerts by block and message content
     crush_count = 0
     medical_count = 0
     gate_c_congestion = 0
     
-    # Process SOS
+    # Parse active SOS alerts
     for s in active_sos:
         msg = s.get('message', '').lower()
-        block = s.get('block', '')
         gate = s.get('gate', '')
-        if "crush" in msg or "crowded" in msg or "push" in msg:
+        if any(k in msg for k in ["crush", "crowded", "push"]):
             crush_count += 1
-        if "medical" in msg or "faint" in msg or "hurt" in msg or "breath" in msg:
+        if any(k in msg for k in ["medical", "faint", "hurt", "breath"]):
             medical_count += 1
         if gate == "Gate C" or "gate c" in msg:
             gate_c_congestion += 1
             
-    # Process chats
+    # Parse chat records
     for c in recent_chats:
         msg = c.get('message', '').lower()
-        if "crush" in msg or "crowded" in msg or "push" in msg:
+        if any(k in msg for k in ["crush", "crowded", "push"]):
             crush_count += 1
-        if "medical" in msg or "faint" in msg or "hurt" in msg or "breath" in msg:
+        if any(k in msg for k in ["medical", "faint", "hurt", "breath"]):
             medical_count += 1
         if "gate c" in msg:
             gate_c_congestion += 1
             
     summary = ["### GenAI Live Command Report"]
     
-    # Build alerts
     if crush_count >= 2 or gate_c_congestion >= 2:
-        summary.append(f"- ⚠️ **CONGESTION HAZARD**: Detected {crush_count + gate_c_congestion} mentions of overcrowding/crushing near Gate C/North-East stand. *Recommended action: Direct volunteers to Gate C and initiate Gate D override.*")
+        summary.append(
+            f"- ⚠️ **CONGESTION HAZARD**: Detected {crush_count + gate_c_congestion} mentions of overcrowding/crushing near Gate C/North-East stand. "
+            f"*Recommended action: Direct volunteers to Gate C and initiate Gate D override.*"
+        )
     if medical_count > 0:
-        summary.append(f"- 🩺 **MEDICAL ALERTS**: {medical_count} medical assistance requests active. *Recommended action: Dispatch local first-aid response team to designated seating blocks.*")
+        summary.append(
+            f"- 🩺 **MEDICAL ALERTS**: {medical_count} medical assistance requests active. "
+            f"*Recommended action: Dispatch local first-aid response team to designated seating blocks.*"
+        )
         
     if len(active_sos) > 0:
         summary.append(f"\n#### Active SOS Emergency Pings ({len(active_sos)}):")
@@ -523,7 +639,7 @@ def get_mock_organizer_summary(active_sos: List[Dict], recent_chats: List[Dict])
         
     return "\n".join(summary)
 
-# Main entry point for uvicorn running
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

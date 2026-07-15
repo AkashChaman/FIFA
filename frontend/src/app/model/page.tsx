@@ -31,7 +31,10 @@ export default function ModelPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0038FF] text-white flex flex-col font-sans select-none">
+    <div className="min-h-screen bg-[#0038FF] text-white flex flex-col font-sans select-none relative overflow-hidden">
+      
+      {/* Background Grid */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff15_1px,transparent_1px),linear-gradient(to_bottom,#ffffff15_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none z-0"></div>
       {/* Header */}
       <header className="w-full border-b-4 border-black bg-white px-6 py-4 flex justify-between items-center z-10 shadow-[0_8px_0_0_rgba(0,0,0,0.1)]">
         <div className="flex items-center gap-4">

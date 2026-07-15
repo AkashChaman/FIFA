@@ -235,7 +235,7 @@ export default function OrganizerDashboard() {
     }
   };
 
-  // Fetch Gemini aggregate summaries
+  // Fetch Groq aggregate summaries
   const triggerAISummary = async () => {
     setSummarizing(true);
     try {
@@ -290,8 +290,10 @@ export default function OrganizerDashboard() {
   const sosBlocks = [...new Set(activeSOS.map((a) => a.block))];
 
   return (
-    <div className="min-h-screen bg-[#0038FF] text-white flex flex-col font-sans select-none">
+    <div className="min-h-screen bg-[#0038FF] text-white flex flex-col font-sans select-none relative overflow-hidden">
       
+      {/* Background Grid */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff15_1px,transparent_1px),linear-gradient(to_bottom,#ffffff15_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none z-0"></div>
       {/* Header */}
       <header className="w-full border-b-4 border-black bg-white px-6 py-4 flex justify-between items-center z-10 sticky top-0 shadow-[0_8px_0_0_rgba(0,0,0,0.1)]">
         <div className="flex items-center gap-4">
@@ -425,7 +427,7 @@ export default function OrganizerDashboard() {
 
         </section>
 
-        {/* Right Hand: SOS Inbox, Gemini Summary and Broadcast (5/12 cols) */}
+        {/* Right Hand: SOS Inbox, Groq Summary and Broadcast (5/12 cols) */}
         <section className="lg:col-span-5 space-y-6 flex flex-col justify-start">
           
           {/* Mass Broadcast Panel */}
@@ -491,7 +493,7 @@ export default function OrganizerDashboard() {
               {summarizing ? (
                 <div className="flex flex-col items-center justify-center h-full py-8 text-black/40 gap-2">
                   <div className="w-6 h-6 border-t-4 border-r-4 border-[#0038FF] border-solid rounded-full animate-spin"></div>
-                  <span className="text-[10px] uppercase font-black tracking-wider animate-pulse text-[#0038FF]">Gemini executing data grouping analysis...</span>
+                  <span className="text-[10px] uppercase font-black tracking-wider animate-pulse text-[#0038FF]">Groq executing data grouping analysis...</span>
                 </div>
               ) : aiSummary ? (
                 <div className="space-y-1">{renderAISummaryText(aiSummary)}</div>

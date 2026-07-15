@@ -1,8 +1,14 @@
 import os
 import time
 import random
+import logging
 import requests
 import numpy as np
+from typing import List, Dict, Any, Tuple, Optional
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("cv_detector")
 
 # Try to import cv2 and ultralytics
 CV2_AVAILABLE = False
@@ -12,13 +18,13 @@ try:
     import cv2
     CV2_AVAILABLE = True
 except ImportError:
-    print("[Warning] opencv-python is not installed. Using terminal-only simulation.")
+    logger.warning("opencv-python is not installed. Using terminal-only simulation.")
 
 try:
     from ultralytics import YOLO
     YOLO_AVAILABLE = True
 except ImportError:
-    print("[Warning] ultralytics is not installed. YOLOv8 object detection will be mocked.")
+    logger.warning("ultralytics is not installed. YOLOv8 object detection will be mocked.")
 
 # API settings
 API_URL = "http://127.0.0.1:8000/api/gate-status/override"
@@ -31,20 +37,31 @@ if YOLO_AVAILABLE:
     try:
         # Load a small pre-trained YOLOv8 nano model (downloads automatically if missing, ~6MB)
         model = YOLO("yolov8n.pt")
-        print("[YOLO] Loaded YOLOv8 nano successfully.")
+        logger.info("Loaded YOLOv8 nano successfully.")
     except Exception as e:
-        print(f"[YOLO Warning] Failed to initialize YOLO model: {e}. Falling back to mocking.")
+        logger.error(f"Failed to initialize YOLO model: {e}. Falling back to mocking.")
         YOLO_AVAILABLE = False
 
+
 class CrowdSimulator:
-    def __init__(self, width=640, height=480):
+    """
+    Simulates a virtual crowd flow of people moving within a CCTV coordinate area.
+    """
+    def __init__(self, width: int = 640, height: int = 480) -> None:
         self.width = width
         self.height = height
-        self.people = []
-        self.cycle_time = 0
+        self.people: List[Dict[str, Any]] = []
+        self.cycle_time = 0.0
         self.status = "Open"
         
-    def update(self):
+    def update(self) -> int:
+        """
+        Updates the positions of simulated individuals and shifts crowd targets
+        based on a sinusoidal pattern to simulate fluctuations over time.
+        
+        Returns:
+            int: The current count of people in the coordinate field.
+        """
         self.cycle_time += 0.05
         # Generate target crowd count fluctuating over time in a sine wave
         # Fluctuates between 4 and 26 people
@@ -78,9 +95,17 @@ class CrowdSimulator:
                 
         return target_count
 
-    def draw_frame(self):
+    def draw_frame(self) -> np.ndarray:
+        """
+        Renders a simulated frame containing visual representation of people
+        and bounding boxes representing CCTV telemetry.
+        
+        Returns:
+            np.ndarray: The generated visual frame as a NumPy array (BGR image).
+        """
         # Create dark background representing the camera feed of the gate concourse
         frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+        
         # Gradient background
         for y in range(self.height):
             # Hex color of FIFA Navy: (RGB: 10, 25, 47) -> (BGR: 47, 25, 10)
@@ -110,11 +135,19 @@ class CrowdSimulator:
                 # Draw a simulated bounding box
                 cv2.rectangle(frame, (x - size - 5, y - size - 2), (x + size + 5, y + size * 2 + 10), (0, 255, 0), 1)
                 cv2.putText(frame, f"person {idx+1}", (x - size - 5, y - size - 8),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1, cv2.LINE_AA)
+                             cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1, cv2.LINE_AA)
                 
         return frame
 
-def send_update_to_backend(count, status):
+
+def send_update_to_backend(count: int, status: str) -> None:
+    """
+    Pushes crowd count and status update to the FastAPI backend API.
+    
+    Args:
+        count (int): The current crowd count.
+        status (str): The operational status of the gate ('Open' or 'Crowded').
+    """
     payload = {
         "gate_id": GATE_ID,
         "status": status,
@@ -123,13 +156,17 @@ def send_update_to_backend(count, status):
     try:
         response = requests.post(API_URL, json=payload, timeout=2)
         if response.status_code == 200:
-            print(f"[CCTV Sync] Synced Gate A status to backend: Count={count}, Status={status}")
+            logger.info(f"Synced Gate A status to backend: Count={count}, Status={status}")
         else:
-            print(f"[CCTV Error] Backend responded with {response.status_code}: {response.text}")
+            logger.error(f"Backend responded with status code {response.status_code}: {response.text}")
     except requests.exceptions.RequestException as e:
-        print(f"[CCTV Error] Could not connect to API server: {e}. Ensure backend is running on port 8000.")
+        logger.error(f"Could not connect to API server: {e}. Ensure backend is running on port 8000.")
 
-def main():
+
+def main() -> None:
+    """
+    Entry point for running the OpenCV/YOLOv8 CCTV crowd simulation loop.
+    """
     print("==========================================================")
     print("FIFA 2026 Crowd Management - OpenCV & YOLOv8 CCTV Simulator")
     print("==========================================================")
@@ -139,7 +176,7 @@ def main():
     print("==========================================================")
     
     sim = CrowdSimulator()
-    last_backend_update_time = 0
+    last_backend_update_time = 0.0
     last_status = None
     
     while True:
@@ -155,13 +192,12 @@ def main():
         # Draw the frame (GUI or Mock)
         frame = sim.draw_frame()
         
-        # If YOLO is available, we run it on our generated frame to demonstrate YOLOv8 execution
+        # If YOLO is available, run it on the frame to show YOLOv8 execution in feed
         yolo_count = 0
         if YOLO_AVAILABLE and CV2_AVAILABLE and model:
             results = model(frame, verbose=False)
-            # Find number of detected people
             for r in results:
-                # Class 0 in COCO dataset is 'person'
+                # Class 0 in COCO dataset represents 'person'
                 boxes = r.boxes
                 for box in boxes:
                     if int(box.cls[0]) == 0:
@@ -178,8 +214,12 @@ def main():
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
             cv2.putText(frame, f"Threshold: {THRESHOLD}", (20, 445),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1, cv2.LINE_AA)
-            cv2.rectangle(frame, (self_width := 420, self_height := 390), (sim.width - 20, 455), (15, 15, 15), -1)
-            cv2.putText(frame, f"STATUS: {current_status.upper()}", (self_width + 15, self_height + 40),
+            
+            # Telemetry rect
+            rect_x = 420
+            rect_y = 390
+            cv2.rectangle(frame, (rect_x, rect_y), (sim.width - 20, 455), (15, 15, 15), -1)
+            cv2.putText(frame, f"STATUS: {current_status.upper()}", (rect_x + 15, rect_y + 40),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2, cv2.LINE_AA)
             
             # Display frame in OpenCV Window
@@ -198,11 +238,12 @@ def main():
                 break
         else:
             # Command line output if CV2 is missing
-            print(f"[CCTV Terminal Simulation] Gate A Crowd: {crowd_count} | Status: {current_status}")
+            logger.info(f"[CCTV Terminal Simulation] Gate A Crowd: {crowd_count} | Status: {current_status}")
             time.sleep(1)
             
     if CV2_AVAILABLE:
         cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     main()

@@ -1,26 +1,27 @@
-# Setup Guide: FIFA 2026 Crowd Management Web Application
+# Installation & Setup Guide: FIFA 2026 Crowd Management
 
-Welcome to the FIFA 2026 Crowd Management App setup guide! This document provides step-by-step instructions so anyone cloning this repository can get the full stack (Next.js frontend, FastAPI backend, and OpenCV CCTV simulation) running locally on their machine with ease.
+This guide provides step-by-step instructions to install, configure, and run the FIFA 2026 Crowd Management stack locally on your machine.
 
 ---
 
-## Prerequisites
+## 📋 Prerequisites
 
-Before you begin, ensure you have the following installed on your machine:
+Before proceeding, verify that you have the following requirements installed:
 
-1. **Node.js** (v18 or higher) and **npm**
-   - Verify installation: `node -v` and `npm -v`
-2. **Python** (v3.9 or higher) and **pip**
-   - Verify installation: `python --version` and `pip --version`
+1. **Python (v3.9 or higher)**
+   * Check version: `python --version` or `py --version`
+   * *Note: Ensure Python is added to your system's Environment Variables (PATH).*
+2. **Node.js (v18.0.0 or higher)** & **npm**
+   * Check versions: `node -v` and `npm -v`
 3. **Git**
-   - Verify installation: `git --version`
+   * Check version: `git --version`
 
 ---
 
-## Step 1: Clone the Repository
+## 🛠️ Step-by-Step Setup
 
-First, clone the project to your local machine and navigate into the project directory:
-
+### Step 1: Clone the Repository
+Open a terminal and clone the project repository:
 ```bash
 git clone https://github.com/AkashChaman/FIFA.git
 cd FIFA
@@ -28,95 +29,100 @@ cd FIFA
 
 ---
 
-## Step 2: Configure Environment Variables
+### Step 2: Configure Environment Variables
+The backend uses environment variables to power GenAI capabilities.
 
-The backend requires a few environment variables for AI and Cloud features. 
-
-Navigate into the `backend/` directory and create a `.env` file:
-```env
-# .env file (inside backend folder)
-GEMINI_API_KEY="your_gemini_api_key_here"
-SUPABASE_URL="your_supabase_url_here"
-SUPABASE_KEY="your_supabase_key_here"
-```
-- **Gemini API Key**: Powers the GenAI chat assistant. If omitted, the app will gracefully fallback to a rules-based mock engine.
-- **Supabase Credentials**: Used for cloud database syncing. If omitted, the app automatically initializes a local SQLite database (`fifa_local.db`) so you can run entirely offline.
-
----
-
-## Step 3: Start the Application
-
-### Option A: The 1-Click Method (Windows Only - Recommended)
-
-We have provided a convenient batch script that automatically installs all dependencies and starts both servers.
-
-1. Double-click the `run_local.bat` file located in the root of the project.
-2. The script will automatically:
-   - Install Python dependencies (`pip install -r requirements.txt`)
-   - Install Node.js dependencies (`npm install`)
-   - Start the FastAPI backend on `http://localhost:8000`
-   - Start the Next.js frontend on `http://localhost:3000`
-3. Skip to **Step 4**.
-
-### Option B: Manual Setup (macOS / Linux / Windows)
-
-If you prefer to start the servers manually, follow these steps:
-
-**Terminal 1 (Backend):**
-```bash
-cd backend
-pip install -r requirements.txt
-python main.py
-```
-
-**Terminal 2 (Frontend):**
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
----
-
-## Step 4: Access the Application
-
-Open your web browser and explore the different modules:
-
-- **Landing Page**: [http://localhost:3000](http://localhost:3000)
-- **Audience Portal**: [http://localhost:3000/audience](http://localhost:3000/audience)
-- **Organizer Command Center**: [http://localhost:3000/organizer](http://localhost:3000/organizer)
-- **Etihad Stadium Model**: [http://localhost:3000/model](http://localhost:3000/model)
-
----
-
-## Step 5: Running the CCTV Computer Vision Simulator
-
-The CCTV Simulator uses OpenCV and YOLOv8 to simulate a camera feed monitoring crowd levels, automatically updating Gate congestion statuses in real-time.
-
-1. Ensure your **FastAPI Backend** is running (from Step 3).
-2. Open a new terminal and navigate to the `backend/` directory:
+1. Navigate into the `backend/` directory:
    ```bash
    cd backend
    ```
-3. Run the simulator script:
-   ```bash
-   python cv_detector.py
+2. Create a file named `.env` and configure your API keys (you can copy `.env.example` as a template):
+   ```env
+   # .env Configuration File
+   GROQ_API_KEY="your-groq-api-key-here"
    ```
-   > *Note: Upon first execution, this script will download a small `yolov8n.pt` model weights file (~6MB).*
-
-4. **Testing the Rerouting Logic**:
-   - A GUI window will pop up showing the simulated CCTV feed with bounding boxes.
-   - The script simulates fluctuating crowd sizes at Gate A.
-   - When the crowd count exceeds `18`, the status of Gate A is pushed to the database as **Crowded**.
-   - **View the magic**: Open the Audience Portal ([http://localhost:3000/audience](http://localhost:3000/audience)). If your selected seat uses Gate A, a live notification will pop up, and the dynamic wayfinding map will instantly reroute your path to the alternative gate (Gate B). 
+   > [!NOTE]  
+   > **Groq API Key:** Required to power the GenAI Chat Assistant and command summaries. If left blank, the application will gracefully use a rules-based fallback script so you can still test all chatbot interactions.
+   > 
+   > **Database:** The application automatically initializes a local SQLite database file `fifa_local.db` inside the backend directory on startup. No extra setup is required.
 
 ---
 
-## Troubleshooting
+### Step 3: Launch the Stack
 
-- **Port 8000 / 3000 is already in use**: 
-  Ensure no other applications are using these ports. You can kill existing processes or change the ports in the respective start commands and update the WebSocket URLs in the frontend code.
-- **Python `pip` not recognized**: 
-  Make sure Python is added to your system's PATH. On Windows, you can select "Add Python to PATH" during installation.
-- **ModuleNotFoundError in Python**: 
-  Ensure you ran `pip install -r requirements.txt` in the exact directory where the `requirements.txt` file is located (`backend/`). Using a Virtual Environment (`python -m venv venv`) is recommended.
+You can launch the stack using either of the two methods below:
+
+#### Option A: One-Click Startup (Windows Only - Recommended)
+A convenience batch file is provided in the root directory. It automatically installs necessary packages and starts both servers.
+1. Navigate to the project root directory.
+2. Double-click the **`run_local.bat`** file.
+3. The script will open two separate terminal windows:
+   * **Window 1 (Backend):** Installs Python dependencies (`requirements.txt`) and launches the FastAPI server on `http://localhost:8000`.
+   * **Window 2 (Frontend):** Installs npm packages (`npm install`) and boots the Next.js dev server on `http://localhost:3000`.
+
+#### Option B: Manual Startup (macOS / Linux / Windows)
+If you prefer running the commands manually, open two terminal windows:
+
+* **Terminal 1: FastAPI Backend**
+  ```bash
+  cd backend
+  # Create a virtual environment (optional but recommended)
+  python -m venv venv
+  source venv/bin/activate  # On Windows, use: venv\Scripts\activate
+  
+  # Install packages & run
+  pip install -r requirements.txt
+  python main.py
+  ```
+
+* **Terminal 2: Next.js Frontend**
+  ```bash
+  cd frontend
+  npm install
+  npm run dev
+  ```
+
+---
+
+## 🖥️ Accessing the Portals
+
+Once both servers are running, access the portals using your browser:
+
+* **🏠 Home / Landing Page:** [http://localhost:3000](http://localhost:3000)
+* **📱 Spectator Audience Portal:** [http://localhost:3000/audience](http://localhost:3000/audience)
+* **📊 Organizer Command Center:** [http://localhost:3000/organizer](http://localhost:3000/organizer)
+* **🏟️ Etihad Stadium Geometry Model:** [http://localhost:3000/model](http://localhost:3000/model)
+
+---
+
+## 📹 Running the CCTV Simulation
+
+The CCTV simulation uses OpenCV and YOLOv8 to count individuals and update gate statuses dynamically in the database.
+
+1. Ensure the **FastAPI Backend** is running (from Step 3).
+2. Open a new terminal window and navigate to the `backend/` directory.
+3. Run the detector script:
+   ```bash
+   python cv_detector.py
+   ```
+   > [!TIP]  
+   > **YOLOv8 Nano Model:** On the first execution, this script automatically downloads the lightweight YOLOv8 weights (`yolov8n.pt`, ~6MB) from Ultralytics.
+   
+4. ** Rerouting Test:**
+   * A camera simulation window will pop up showing moving shapes with detected green bounding boxes.
+   * As the crowd count fluctuates, when it crosses **`18`**, the status of `Gate A` changes to `Crowded` in the database.
+   * If you have the Audience Portal open and selected a seat using `Gate A`, you will receive a real-time notification, and the stadium route path will instantly update to bypass Gate A and use Gate B instead.
+
+---
+
+## 🔍 Troubleshooting
+
+* **Port 8000 or 3000 is already in use:**
+  Verify that no other local processes are listening on these ports. You can find and terminate them, or modify the ports in `backend/main.py` and the frontend settings.
+* **ModuleNotFoundError on Backend Run:**
+  Ensure you have activated your virtual environment and successfully executed `pip install -r requirements.txt` inside the `backend/` directory.
+* **OpenCV Window Doesn't Open:**
+  If your environment lacks GUI support (e.g. Docker container or headless Linux), the script will print telemetry directly to your terminal screen instead:
+  ```text
+  [CCTV Terminal Simulation] Gate A Crowd: 12 | Status: Open
+  ```
