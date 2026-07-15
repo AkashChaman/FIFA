@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { wsClient } from "@/utils/websocket";
+import { API_BASE_URL } from "@/utils/config";
 import StadiumMap, { GateData, POIData } from "@/components/StadiumMap";
 import { 
   Settings2, ArrowLeft, Radio, ShieldAlert, CheckCircle2, 
@@ -117,7 +118,7 @@ export default function OrganizerDashboard() {
 
   const fetchGates = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/gate-status");
+      const res = await fetch(`${API_BASE_URL}/api/gate-status`);
       if (res.ok) {
         const data = await res.json();
         setGates(data);
@@ -129,7 +130,7 @@ export default function OrganizerDashboard() {
 
   const fetchPOIs = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/pois");
+      const res = await fetch(`${API_BASE_URL}/api/pois`);
       if (res.ok) setPois(await res.json());
     } catch (e) {
       console.error(e);
@@ -138,7 +139,7 @@ export default function OrganizerDashboard() {
 
   const fetchSOSAlerts = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/sos");
+      const res = await fetch(`${API_BASE_URL}/api/sos`);
       if (res.ok) {
         const data: SOSAlert[] = await res.json();
 
@@ -172,7 +173,7 @@ export default function OrganizerDashboard() {
   // Submit gate override
   const handleSaveOverride = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/gate-status/override", {
+      const response = await fetch(`${API_BASE_URL}/api/gate-status/override`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -193,7 +194,7 @@ export default function OrganizerDashboard() {
   // Resolve an alert — moves it from active inbox to resolved log
   const handleResolveAlert = async (id: number) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/sos/resolve/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/sos/resolve/${id}`, {
         method: "POST",
       });
       if (!response.ok) throw new Error();
@@ -205,7 +206,7 @@ export default function OrganizerDashboard() {
   // Unresolve an alert — pushes it back from resolved log to active inbox
   const handleUnresolveAlert = async (id: number) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/sos/unresolve/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/sos/unresolve/${id}`, {
         method: "POST",
       });
       if (!response.ok) throw new Error();
@@ -220,7 +221,7 @@ export default function OrganizerDashboard() {
     if (!broadcastMessage.trim()) return;
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/notifications/broadcast", {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/broadcast`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: broadcastMessage }),
@@ -239,7 +240,7 @@ export default function OrganizerDashboard() {
   const triggerAISummary = async () => {
     setSummarizing(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/alerts/summary");
+      const res = await fetch(`${API_BASE_URL}/api/alerts/summary`);
       if (res.ok) {
         const data = await res.json();
         setAiSummary(data.summary);

@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Send, User, Bot, AlertTriangle, CheckCircle2, ShieldAlert } from "lucide-react";
+import { API_BASE_URL } from "@/utils/config";
 
 interface Message {
   id: string;
@@ -48,7 +49,7 @@ export default function ChatAssistant({ sessionId, seat, block, gate }: ChatAssi
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/chat", {
+      const response = await fetch(`${API_BASE_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

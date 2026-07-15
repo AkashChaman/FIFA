@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Map as MapIcon } from "lucide-react";
 import StadiumMap, { GateData, POIData } from "@/components/StadiumMap";
+import { API_BASE_URL } from "@/utils/config";
 
 export default function ModelPage() {
   const [gates, setGates] = useState<GateData[]>([]);
@@ -14,8 +15,8 @@ export default function ModelPage() {
     const fetchData = async () => {
       try {
         const [gatesRes, poisRes] = await Promise.all([
-          fetch("http://127.0.0.1:8000/api/gate-status"),
-          fetch("http://127.0.0.1:8000/api/pois")
+          fetch(`${API_BASE_URL}/api/gate-status`),
+          fetch(`${API_BASE_URL}/api/pois`)
         ]);
         
         if (gatesRes.ok) setGates(await gatesRes.json());

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { wsClient } from "@/utils/websocket";
+import { API_BASE_URL } from "@/utils/config";
 import StadiumMap, { GateData, POIData } from "@/components/StadiumMap";
 import AlertBanner from "@/components/AlertBanner";
 import SOSButton from "@/components/SOSButton";
@@ -143,7 +144,7 @@ export default function AudiencePortal() {
   // Fetch initial gate status
   const fetchGates = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/gate-status");
+      const res = await fetch(`${API_BASE_URL}/api/gate-status`);
       if (res.ok) {
         const data = await res.json();
         setGates(data);
@@ -156,7 +157,7 @@ export default function AudiencePortal() {
   // Fetch POIs
   const fetchPOIs = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/pois");
+      const res = await fetch(`${API_BASE_URL}/api/pois`);
       if (res.ok) {
         const data = await res.json();
         setPois(data);
@@ -194,7 +195,7 @@ export default function AudiencePortal() {
   const handleSOSTrigger = async (msg: string) => {
     setSosLoading(true);
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/sos", {
+      const response = await fetch(`${API_BASE_URL}/api/sos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

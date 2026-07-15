@@ -6,6 +6,12 @@ import requests
 import numpy as np
 from typing import List, Dict, Any, Tuple, Optional
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("cv_detector")
@@ -27,7 +33,8 @@ except ImportError:
     logger.warning("ultralytics is not installed. YOLOv8 object detection will be mocked.")
 
 # API settings
-API_URL = "http://127.0.0.1:8000/api/gate-status/override"
+BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+API_URL = f"{BACKEND_URL.rstrip('/')}/api/gate-status/override"
 GATE_ID = "Gate A"
 THRESHOLD = 18
 

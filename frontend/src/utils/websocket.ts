@@ -113,8 +113,8 @@ class WebSocketClient {
   }
 }
 
-const isClient = typeof window !== "undefined";
-const hostname = isClient ? (window.location.hostname === "localhost" ? "127.0.0.1" : window.location.hostname) : "127.0.0.1";
-const wsUrl = `ws://${hostname}:8000/api/ws`;
+import { WS_BASE_URL } from "./config";
 
-export const wsClient = isClient ? new WebSocketClient(wsUrl) : null;
+const isClient = typeof window !== "undefined";
+
+export const wsClient = isClient ? new WebSocketClient(WS_BASE_URL) : null;

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import { User, Settings2, ShieldAlert } from 'lucide-react';
+import { API_BASE_URL } from '@/utils/config';
 
 // --- Custom SVG Components for Hand-Drawn Accents ---
 
@@ -64,8 +65,8 @@ export const Component = () => {
     const fetchData = async () => {
       try {
         const [sosRes, gateRes] = await Promise.all([
-          fetch("http://127.0.0.1:8000/api/sos").catch(() => null),
-          fetch("http://127.0.0.1:8000/api/gate-status").catch(() => null)
+          fetch(`${API_BASE_URL}/api/sos`).catch(() => null),
+          fetch(`${API_BASE_URL}/api/gate-status`).catch(() => null)
         ]);
         
         let activeSOS = 0;
