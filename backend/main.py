@@ -431,12 +431,7 @@ def get_alerts_summary() -> Dict[str, str]:
     
     # Get recent audience chat logs (last 50 messages)
     try:
-        conn = db.sqlite3.connect(db.SQLITE_DB_PATH)
-        conn.row_factory = db.sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM chat_logs WHERE sender = 'Audience' ORDER BY id DESC LIMIT 50")
-        recent_chats = [dict(row) for row in cursor.fetchall()]
-        conn.close()
+        recent_chats = db.get_recent_audience_chats(limit=50)
     except Exception as e:
         logger.error(f"Error fetching recent chat logs: {e}")
         recent_chats = []
