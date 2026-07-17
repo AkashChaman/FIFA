@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://fifa-backend-z106.onrender.com";
 
 export const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || (() => {
   try {
@@ -11,6 +11,6 @@ export const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || (() => {
     } else if (API_BASE_URL.startsWith("http://")) {
       return API_BASE_URL.replace("http://", "ws://") + "/api/ws";
     }
-    return "ws://127.0.0.1:8000/api/ws";
+    return "wss://fifa-backend-z106.onrender.com/api/ws";
   }
 })();
