@@ -7,4 +7,3 @@ requests
 python-dotenv
 pydantic
 websockets
-firebase-admin

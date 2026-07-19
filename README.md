@@ -2,7 +2,7 @@
 
 An enterprise-grade, real-time safety and crowd management system designed for the FIFA 2026 World Cup, modeling Etihad Stadium (Manchester) as the architectural blueprint. 
 
-This full-stack system leverages **FastAPI WebSockets**, **Next.js App Router**, **YOLOv8 Computer Vision**, and a robust **Firebase Cloud Firestore database** to coordinate crowd flows, automate gate rerouting, handle SOS emergency alerts, and provide spectators with an interactive GenAI Safety Assistant.
+This full-stack system leverages **FastAPI WebSockets**, **Next.js App Router**, **YOLOv8 Computer Vision**, and a robust local **SQLite database** to coordinate crowd flows, automate gate rerouting, handle SOS emergency alerts, and provide spectators with an interactive GenAI Safety Assistant.
 
 ---
 
@@ -13,7 +13,7 @@ The application is structured into four main components working in unison:
 ```mermaid
 graph TD
     CV[CCTV Simulation cv_detector.py] -->|POST /api/gate-status/override| API[FastAPI backend/main.py]
-    API -->|Reads / Writes| DB[(Firebase Firestore db.py)]
+    API -->|Reads / Writes| DB[(Local SQLite db.py)]
     API -->|Real-Time Broadcast| WS[WebSockets /api/ws]
     WS -->|Live Telemetry| FE[Next.js Frontend]
     AI[GenAI Chat /api/chat] -->|Queries gate states & logs history| DB
@@ -23,7 +23,7 @@ graph TD
 
 1. **Next.js Frontend:** A responsive web portal featuring a Mobile-First Audience Portal (wayfinding, chat, notifications, SOS) and a Desktop Organizer Control Center (heatmap, stadium model, override controls, alert dispatcher).
 2. **FastAPI Backend (`main.py`):** REST API and WebSockets dispatcher that acts as the central coordinator, database gateway, and GenAI client.
-3. **Firebase Cloud Firestore (`db.py`):** Cloud-hosted NoSQL database handling real-time gate statuses, active and resolved SOS emergencies, and conversation logs.
+3. **Local SQLite Database (`db.py`):** High-performance local storage handling real-time gate statuses, active and resolved SOS emergencies, and conversation logs.
 4. **CCTV OpenCV Simulator (`cv_detector.py`):** Runs real-time person detection (via YOLOv8 or simulated mocks) on simulated security feeds to dynamically measure gate congestion and notify the backend.
 
 ---
@@ -35,7 +35,7 @@ graph TD
 | **Frontend** | React / Next.js 14+ | App Router, responsive portals, dynamic SVG maps. |
 | **Styling** | Tailwind CSS / CSS | UI layouts, responsive breakpoints, transitions. |
 | **Backend** | FastAPI / Python 3.9+ | High-concurrency REST endpoints and WebSockets. |
-| **Database** | Firebase Firestore | Cloud NoSQL database service. |
+| **Database** | SQLite 3 | Local datastore (zero-configuration offline-first). |
 | **Computer Vision** | OpenCV & YOLOv8 | Camera crowd monitoring and person tracking. |
 | **GenAI** | Groq (Llama 3.3 70B) | Contextual safety assistant & executive summarizer. |
 
@@ -50,7 +50,7 @@ fifa-crowd-management/
 ├── run_local.bat           # 1-click Windows runner script (launches both servers)
 ├── backend/                # python FastAPI backend services
 │   ├── main.py             # FastAPI REST router and WebSocket server
-│   ├── db.py               # Firebase Firestore database helper & schema seeding
+│   ├── db.py               # Local SQLite database helper & schema seeding
 │   ├── cv_detector.py      # OpenCV + YOLOv8 camera simulator script
 │   ├── mock_data.py        # Static coordinates & seating block metadata (Etihad Stadium)
 │   ├── requirements.txt    # Python requirements manifest

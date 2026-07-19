@@ -44,7 +44,7 @@ The backend uses environment variables to power GenAI capabilities.
    > [!NOTE]  
    > **Groq API Key:** Required to power the GenAI Chat Assistant and command summaries. If left blank, the application will gracefully use a rules-based fallback script so you can still test all chatbot interactions.
    > 
-   > **Database:** The application connects to **Google Firebase Firestore**. You must place your Firebase service account key file named `serviceAccountKey.json` inside the `backend/` directory for local development, or set the `FIREBASE_SERVICE_ACCOUNT_JSON` environment variable for cloud hosting.
+   > **Database:** The application automatically initializes a local SQLite database file `fifa_local.db` inside the backend directory on startup. No extra setup is required.
 
 ---
 
