@@ -430,16 +430,7 @@ def get_alerts_summary() -> Dict[str, str]:
     active_sos = [s for s in sos_list if s['status'] == 'Active']
     
     # Get recent audience chat logs (last 50 messages)
-    try:
-        conn = db.sqlite3.connect(db.SQLITE_DB_PATH)
-        conn.row_factory = db.sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM chat_logs WHERE sender = 'Audience' ORDER BY id DESC LIMIT 50")
-        recent_chats = [dict(row) for row in cursor.fetchall()]
-        conn.close()
-    except Exception as e:
-        logger.error(f"Error fetching recent chat logs: {e}")
-        recent_chats = []
+    recent_chats = db.get_recent_audience_chats(limit=50)
         
     # Construct input text for analysis
     reports_text = []
@@ -489,7 +480,7 @@ async def broadcast_notification(payload: Dict[str, Any] = Body(...)) -> Dict[st
         "type": "MASS_NOTIFICATION",
         "data": {
             "message": message,
-            "timestamp": datetime.datetime.utcnow().isoformat()
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
         }
     })
     return {"status": "Success", "message": "Broadcast sent."}
